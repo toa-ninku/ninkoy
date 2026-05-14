@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<script>
+// Google Drive preview のiframe内で動作している場合、全画面で開くよう誘導
+(function(){
+  if(window.self !== window.top){
+    document.addEventListener('DOMContentLoaded', function(){
+      var overlay = document.createElement('div');
+      overlay.style.cssText = [
+        'position:fixed','top:0','left:0','right:0','bottom:0',
+        'background:#3C3489','color:#fff','display:flex',
+        'flex-direction:column','align-items:center','justify-content:center',
+        'z-index:99999','padding:24px','text-align:center','gap:16px'
+      ].join(';');
+      overlay.innerHTML = [
+        '<div style="font-size:48px">🏗️</div>',
+        '<div style="font-size:20px;font-weight:700">人工管理システム</div>',
+        '<div style="font-size:14px;opacity:.85;line-height:1.7">',
+        'このページはiframe内では<br>正常に動作しません。<br>',
+        '下のボタンをタップして<br>アプリを開いてください。',
+        '</div>',
+        '<a id="open-link" href="' + window.location.href + '" target="_blank" ',
+        'style="background:#fff;color:#3C3489;padding:14px 28px;border-radius:99px;',
+        'font-size:16px;font-weight:700;text-decoration:none;margin-top:8px">',
+        '🔗 アプリを開く</a>',
+        '<div style="font-size:12px;opacity:.7;margin-top:4px">',
+        '開いたページをホーム画面に追加してください</div>'
+      ].join('');
+      document.body.appendChild(overlay);
+      // try to update the link with actual current URL
+      try{
+        document.getElementById('open-link').href = window.location.href;
+      }catch(e){}
+    });
+  }
+})();
+</script>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3C3489">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="人工管理">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>人工管理システム</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/tabler-icons.min.css">
+<script>
+// Minimal QR Code generator (embedded)
+var qrcode = (function() {
+  var QRMode = { MODE_NUMBER: 1 << 0, MODE_ALPHA_NUM: 1 << 1, MODE_8BIT_BYTE: 1 << 2, MODE_KANJI: 1 << 3 };
+  var QRErrorCorrectLevel = { L: 1, M: 0, Q: 3, H: 2 };
+  var QRMaskPattern = { PATTERN000: 0, PATTERN001: 1, PATTERN010: 2, PATTERN011: 3, PATTERN100: 4, PATTERN101: 5, PATTERN110: 6, PATTERN111: 7 };
+  var QRUtil = {
+    PATTERN_POSITION_TABLE: [[], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102], [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122], [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154], [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]],
+    getBCHTypeInfo: function(data) { var d = data << 10; while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(1335) >= 0) d ^= (1335 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(1335))); return ((data << 10) | d) ^ 21522; },
+    getBCHTypeNumber: function(data) { var d = data << 12; while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(7973) >= 0) d ^= (7973 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(7973))); return (data << 12) | d; },
+    getBCHDigit: function(data) { var digit = 0; while (data != 0) { digit++; data >>>= 1; } return digit; },
+    getPatternPosition: function(typeNumber) { return QRUtil.PATTERN_POSITION_TABLE[typeNumber - 1]; },
+    getMask: function(maskPattern, i, j) { switch (maskPattern) { case QRMaskPattern.PATTERN000: return (i + j) % 2 == 0; case QRMaskPattern.PATTERN001: return i % 2 == 0; case QRMaskPattern.PATTERN010: return j % 3 == 0; case QRMaskPattern.PATTERN011: return (i + j) % 3 == 0; case QRMaskPattern.PATTERN100: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0; case QRMaskPattern.PATTERN101: return (i * j) % 2 + (i * j) % 3 == 0; case QRMaskPattern.PATTERN110: return ((i * j) % 2 + (i * j) % 3) % 2 == 0; case QRMaskPattern.PATTERN111: return ((i * j) % 3 + (i + j) % 2) % 2 == 0; default: throw new Error("bad maskPattern:" + maskPattern); } },
+    getErrorCorrectPolynomial: function(errorCorrectLength) { var a = new QRPolynomial([1], 0); for (var i = 0; i < errorCorrectLength; i++) a = a.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0)); return a; },
+    getLengthInBits: function(mode, type) { if (1 <= type && type < 10) { switch (mode) { case QRMode.MODE_NUMBER: return 10; case QRMode.MODE_ALPHA_NUM: return 9; case QRMode.MODE_8BIT_BYTE: return 8; case QRMode.MODE_KANJI: return 8; default: throw new Error("mode:" + mode); } } else if (type < 27) { switch (mode) { case QRMode.MODE_NUMBER: return 12; case QRMode.MODE_ALPHA_NUM: return 11; case QRMode.MODE_8BIT_BYTE: return 16; case QRMode.MODE_KANJI: return 10; default: throw new Error("mode:" + mode); } } else if (type < 41) { switch (mode) { case QRMode.MODE_NUMBER: return 14; case QRMode.MODE_ALPHA_NUM: return 13; case QRMode.MODE_8BIT_BYTE: return 16; case QRMode.MODE_KANJI: return 12; default: throw new Error("mode:" + mode); } } else { throw new Error("type:" + type); } },
+    getLostPoint: function(qrCode) { var moduleCount = qrCode.getModuleCount(), lostPoint = 0, row, col; for (row = 0; row < moduleCount; row++) { for (col = 0; col < moduleCount; col++) { var sameCount = 0, dark = qrCode.isDark(row, col); for (var r = -1; r <= 1; r++) { if (row + r < 0 || moduleCount <= row + r) continue; for (var c = -1; c <= 1; c++) { if (col + c < 0 || moduleCount <= col + c) continue; if (r == 0 && c == 0) continue; if (dark == qrCode.isDark(row + r, col + c)) sameCount++; } } if (sameCount > 5) lostPoint += (3 + sameCount - 5); } } for (row = 0; row < moduleCount - 1; row++) { for (col = 0; col < moduleCount - 1; col++) { var count = 0; if (qrCode.isDark(row, col)) count++; if (qrCode.isDark(row + 1, col)) count++; if (qrCode.isDark(row, col + 1)) count++; if (qrCode.isDark(row + 1, col + 1)) count++; if (count == 0 || count == 4) lostPoint += 3; } } for (row = 0; row < moduleCount; row++) { for (col = 0; col < moduleCount - 6; col++) { if (qrCode.isDark(row, col) && !qrCode.isDark(row, col + 1) && qrCode.isDark(row, col + 2) && qrCode.isDark(row, col + 3) && qrCode.isDark(row, col + 4) && !qrCode.isDark(row, col + 5) && qrCode.isDark(row, col + 6)) lostPoint += 40; } } for (col = 0; col < moduleCount; col++) { for (row = 0; row < moduleCount - 6; row++) { if (qrCode.isDark(row, col) && !qrCode.isDark(row + 1, col) && qrCode.isDark(row + 2, col) && qrCode.isDark(row + 3, col) && qrCode.isDark(row + 4, col) && !qrCode.isDark(row + 5, col) && qrCode.isDark(row + 6, col)) lostPoint += 40; } } var darkCount = 0; for (col = 0; col < moduleCount; col++) for (row = 0; row < moduleCount; row++) if (qrCode.isDark(row, col)) darkCount++; var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5; lostPoint += ratio * 10; return lostPoint; }
+  };
+  var QRMath = {
+    glog: function(n) { if (n < 1) throw new Error("glog(" + n + ")"); return QRMath.LOG_TABLE[n]; },
+    gexp: function(n) { while (n < 0) n += 255; while (n >= 256) n -= 255; return QRMath.EXP_TABLE[n]; },
+    EXP_TABLE: (function() { var t = new Array(256); for (var i = 0; i < 8; i++) t[i] = 1 << i; for (var i = 8; i < 256; i++) t[i] = t[i - 4] ^ t[i - 5] ^ t[i - 6] ^ t[i - 8]; return t; })(),
+    LOG_TABLE: (function() { var t = new Array(256); for (var i = 0; i < 255; i++) t[1 << i > 255 ? (1 << i) ^ 285 : 1 << i] = i; var e = []; for (var i = 0; i < 8; i++) e[i] = 1 << i; for (var i = 8; i < 256; i++) e[i] = e[i-4]^e[i-5]^e[i-6]^e[i-8]; for (var i = 0; i < 255; i++) t[e[i]] = i; return t; })()
+  };
+  function QRPolynomial(num, shift) { if (num.length == undefined) throw new Error(num.length + "/" + shift); var offset = 0; while (offset < num.length && num[offset] == 0) offset++; this.num = new Array(num.length - offset + shift); for (var i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset]; }
+  QRPolynomial.prototype = { get: function(index) { return this.num[index]; }, getLength: function() { return this.num.length; }, multiply: function(e) { var num = new Array(this.getLength() + e.getLength() - 1); for (var i = 0; i < this.getLength(); i++) for (var j = 0; j < e.getLength(); j++) num[i + j] ^= QRMath.gexp(QRMath.glog(this.get(i)) + QRMath.glog(e.get(j))); return new QRPolynomial(num, 0); }, mod: function(e) { if (this.getLength() - e.getLength() < 0) return this; var ratio = QRMath.glog(this.get(0)) - QRMath.glog(e.get(0)), num = new Array(this.getLength()); for (var i = 0; i < this.getLength(); i++) num[i] = this.get(i); for (var i = 0; i < e.getLength(); i++) num[i] ^= QRMath.gexp(QRMath.glog(e.get(i)) + ratio); return new QRPolynomial(num, 0).mod(e); } };
+  function QRRSBlock(totalCount, dataCount) { this.totalCount = totalCount; this.dataCount = dataCount; }
+  QRRSBlock.RS_BLOCK_TABLE = [[1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9], [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16], [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13], [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9], [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12], [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15], [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14], [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15], [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13], [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16], [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13], [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15], [4, 133, 107], [8, 59, 37, 1, 60, 38], [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12], [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41], [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13], [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42], [5, 54, 24, 7, 55, 25], [11, 36, 12, 7, 37, 13], [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46], [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16], [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47], [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15], [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44], [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15], [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45], [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14], [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42], [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16], [4, 144, 116, 4, 145, 117], [17, 68, 42], [17, 50, 22, 6, 51, 23], [19, 46, 16, 6, 47, 17], [2, 139, 111, 7, 140, 112], [17, 74, 46], [7, 54, 24, 16, 55, 25], [34, 37, 13], [4, 151, 121, 5, 152, 122], [4, 75, 47, 14, 76, 48], [11, 54, 24, 14, 55, 25], [16, 45, 15, 14, 46, 16], [6, 147, 117, 4, 148, 118], [6, 73, 45, 14, 74, 46], [11, 54, 24, 16, 55, 25], [30, 46, 16, 2, 47, 17], [8, 132, 106, 4, 133, 107], [8, 75, 47, 13, 76, 48], [7, 54, 24, 22, 55, 25], [22, 45, 15, 13, 46, 16], [10, 142, 114, 2, 143, 115], [19, 74, 46, 4, 75, 47], [28, 50, 22, 6, 51, 23], [33, 46, 16, 4, 47, 17], [8, 152, 122, 4, 153, 123], [22, 73, 45, 3, 74, 46], [8, 53, 23, 26, 54, 24], [12, 45, 15, 28, 46, 16], [3, 147, 117, 10, 148, 118], [3, 73, 45, 23, 74, 46], [4, 54, 24, 31, 55, 25], [11, 45, 15, 31, 46, 16], [7, 146, 116, 7, 147, 117], [21, 73, 45, 7, 74, 46], [1, 53, 23, 37, 54, 24], [19, 45, 15, 26, 46, 16], [5, 145, 115, 10, 146, 116], [19, 75, 47, 10, 76, 48], [15, 54, 24, 25, 55, 25], [23, 45, 15, 25, 46, 16], [13, 145, 115, 3, 146, 116], [2, 74, 46, 29, 75, 47], [42, 54, 24, 1, 55, 25], [23, 45, 15, 28, 46, 16], [17, 145, 115], [10, 74, 46, 23, 75, 47], [10, 54, 24, 35, 55, 25], [19, 45, 15, 35, 46, 16], [17, 145, 115, 1, 146, 116], [14, 74, 46, 21, 75, 47], [29, 54, 24, 19, 55, 25], [11, 45, 15, 46, 46, 16], [13, 145, 115, 6, 146, 116], [14, 74, 46, 23, 75, 47], [44, 54, 24, 7, 55, 25], [59, 46, 16, 1, 47, 17], [12, 151, 121, 7, 152, 122], [12, 75, 47, 26, 76, 48], [39, 54, 24, 14, 55, 25], [22, 45, 15, 41, 46, 16], [6, 151, 121, 14, 152, 122], [6, 75, 47, 34, 76, 48], [46, 54, 24, 10, 55, 25], [2, 45, 15, 64, 46, 16], [17, 152, 122, 4, 153, 123], [29, 74, 46, 14, 75, 47], [49, 54, 24, 10, 55, 25], [24, 45, 15, 46, 46, 16], [4, 152, 122, 18, 153, 123], [13, 74, 46, 32, 75, 47], [48, 54, 24, 14, 55, 25], [42, 45, 15, 32, 46, 16], [20, 147, 117, 4, 148, 118], [40, 75, 47, 7, 76, 48], [43, 54, 24, 22, 55, 25], [10, 45, 15, 67, 46, 16], [19, 148, 118, 6, 149, 119], [18, 75, 47, 31, 76, 48], [34, 54, 24, 34, 55, 25], [20, 45, 15, 61, 46, 16]];
+  QRRSBlock.getRSBlocks = function(typeNumber, errorCorrectLevel) { var rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel), length = rsBlock.length / 3, list = []; for (var i = 0; i < length; i++) { var count = rsBlock[i * 3 + 0], totalCount = rsBlock[i * 3 + 1], dataCount = rsBlock[i * 3 + 2]; for (var j = 0; j < count; j++) list.push(new QRRSBlock(totalCount, dataCount)); } return list; };
+  QRRSBlock.getRsBlockTable = function(typeNumber, errorCorrectLevel) { switch (errorCorrectLevel) { case QRErrorCorrectLevel.L: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0]; case QRErrorCorrectLevel.M: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1]; case QRErrorCorrectLevel.Q: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2]; case QRErrorCorrectLevel.H: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3]; default: throw new Error("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel); } };
+  function QRBitBuffer() { this.buffer = []; this.length = 0; }
+  QRBitBuffer.prototype = { get: function(index) { var bufIndex = Math.floor(index / 8); return ((this.buffer[bufIndex] >>> (7 - index % 8)) & 1) == 1; }, put: function(num, length) { for (var i = 0; i < length; i++) this.putBit(((num >>> (length - i - 1)) & 1) == 1); }, getLengthInBits: function() { return this.length; }, putBit: function(bit) { var bufIndex = Math.floor(this.length / 8); if (this.buffer.length <= bufIndex) this.buffer.push(0); if (bit) this.buffer[bufIndex] |= (0x80 >>> (this.length % 8)); this.length++; } };
+  function QR8bitByte(data) { this.mode = QRMode.MODE_8BIT_BYTE; this.data = data; this.parsedData = []; for (var i = 0, l = this.data.length; i < l; i++) { var byteArray = [], code = this.data.charCodeAt(i); if (code > 0x10000) { byteArray[0] = 0xF0 | ((code & 0x1C0000) >>> 18); byteArray[1] = 0x80 | ((code & 0x3F000) >>> 12); byteArray[2] = 0x80 | ((code & 0xFC0) >>> 6); byteArray[3] = 0x80 | (code & 0x3F); } else if (code > 0x800) { byteArray[0] = 0xE0 | ((code & 0xF000) >>> 12); byteArray[1] = 0x80 | ((code & 0xFC0) >>> 6); byteArray[2] = 0x80 | (code & 0x3F); } else if (code > 0x80) { byteArray[0] = 0xC0 | ((code & 0x7C0) >>> 6); byteArray[1] = 0x80 | (code & 0x3F); } else { byteArray[0] = code; } this.parsedData.push(byteArray); } this.parsedData = Array.prototype.concat.apply([], this.parsedData); if (this.parsedData.length != this.data.length) { this.parsedData.unshift(191); this.parsedData.unshift(187); this.parsedData.unshift(239); } }
+  QR8bitByte.prototype = { getMode: function() { return this.mode; }, getLength: function(buffer) { return this.parsedData.length; }, write: function(buffer) { for (var i = 0, l = this.parsedData.length; i < l; i++) buffer.put(this.parsedData[i], 8); } };
+  function QRCodeModel(typeNumber, errorCorrectLevel) { this.typeNumber = typeNumber; this.errorCorrectLevel = errorCorrectLevel; this.modules = null; this.moduleCount = 0; this.dataCache = null; this.dataList = []; }
+  QRCodeModel.prototype = { addData: function(data) { var newData = new QR8bitByte(data); this.dataList.push(newData); this.dataCache = null; }, isDark: function(row, col) { if (row < 0 || this.moduleCount <= row || col < 0 || this.moduleCount <= col) throw new Error(row + "," + col); return this.modules[row][col]; }, getModuleCount: function() { return this.moduleCount; }, make: function() { this.makeImpl(false, this.getBestMaskPattern()); }, makeImpl: function(test, maskPattern) { this.moduleCount = this.typeNumber * 4 + 17; this.modules = (function(moduleCount) { var modules = new Array(moduleCount); for (var row = 0; row < moduleCount; row++) { modules[row] = new Array(moduleCount); for (var col = 0; col < moduleCount; col++) modules[row][col] = null; } return modules; })(this.moduleCount); this.setupPositionProbePattern(0, 0); this.setupPositionProbePattern(this.moduleCount - 7, 0); this.setupPositionProbePattern(0, this.moduleCount - 7); this.setupPositionAdjustPattern(); this.setupTimingPattern(); this.setupTypeInfo(test, maskPattern); if (this.typeNumber >= 7) this.setupTypeNumber(test); if (this.dataCache == null) this.dataCache = QRCodeModel.createData(this.typeNumber, this.errorCorrectLevel, this.dataList); this.mapData(this.dataCache, maskPattern); }, setupPositionProbePattern: function(row, col) { for (var r = -1; r <= 7; r++) { if (row + r <= -1 || this.moduleCount <= row + r) continue; for (var c = -1; c <= 7; c++) { if (col + c <= -1 || this.moduleCount <= col + c) continue; if ((0 <= r && r <= 6 && (c == 0 || c == 6)) || (0 <= c && c <= 6 && (r == 0 || r == 6)) || (2 <= r && r <= 4 && 2 <= c && c <= 4)) this.modules[row + r][col + c] = true; else this.modules[row + r][col + c] = false; } } }, getBestMaskPattern: function() { var minLostPoint = 0, pattern = 0; for (var i = 0; i < 8; i++) { this.makeImpl(true, i); var lostPoint = QRUtil.getLostPoint(this); if (i == 0 || minLostPoint > lostPoint) { minLostPoint = lostPoint; pattern = i; } } return pattern; }, setupTimingPattern: function() { for (var r = 8; r < this.moduleCount - 8; r++) { if (this.modules[r][6] != null) continue; this.modules[r][6] = (r % 2 == 0); } for (var c = 8; c < this.moduleCount - 8; c++) { if (this.modules[6][c] != null) continue; this.modules[6][c] = (c % 2 == 0); } }, setupPositionAdjustPattern: function() { var pos = QRUtil.getPatternPosition(this.typeNumber); for (var i = 0; i < pos.length; i++) { for (var j = 0; j < pos.length; j++) { var row = pos[i], col = pos[j]; if (this.modules[row][col] != null) continue; for (var r = -2; r <= 2; r++) { for (var c = -2; c <= 2; c++) { if (r == -2 || r == 2 || c == -2 || c == 2 || (r == 0 && c == 0)) this.modules[row + r][col + c] = true; else this.modules[row + r][col + c] = false; } } } } }, setupTypeNumber: function(test) { var bits = QRUtil.getBCHTypeNumber(this.typeNumber), i, mod; for (i = 0; i < 18; i++) { mod = (!test && ((bits >> i) & 1) == 1); this.modules[Math.floor(i / 3)][i % 3 + this.moduleCount - 8 - 3] = mod; } for (i = 0; i < 18; i++) { mod = (!test && ((bits >> i) & 1) == 1); this.modules[i % 3 + this.moduleCount - 8 - 3][Math.floor(i / 3)] = mod; } }, setupTypeInfo: function(test, maskPattern) { var data = (this.errorCorrectLevel << 3) | maskPattern, bits = QRUtil.getBCHTypeInfo(data), i, mod; for (i = 0; i < 15; i++) { mod = (!test && ((bits >> i) & 1) == 1); if (i < 6) this.modules[i][8] = mod; else if (i < 8) this.modules[i + 1][8] = mod; else this.modules[this.moduleCount - 15 + i][8] = mod; } for (i = 0; i < 15; i++) { mod = (!test && ((bits >> i) & 1) == 1); if (i < 8) this.modules[8][this.moduleCount - i - 1] = mod; else if (i < 9) this.modules[8][15 - i - 1 + 1] = mod; else this.modules[8][15 - i - 1] = mod; } this.modules[this.moduleCount - 8][8] = (!test); }, mapData: function(data, maskPattern) { var inc = -1, row = this.moduleCount - 1, bitIndex = 7, byteIndex = 0, mask = QRUtil.getMask.bind(null, maskPattern); for (var col = this.moduleCount - 1; col > 0; col -= 2) { if (col == 6) col--; while (true) { for (var c = 0; c < 2; c++) { if (this.modules[row][col - c] == null) { var dark = false; if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) == 1; if (mask(row, col - c)) dark = !dark; this.modules[row][col - c] = dark; bitIndex--; if (bitIndex == -1) { byteIndex++; bitIndex = 7; } } } row += inc; if (row < 0 || this.moduleCount <= row) { row -= inc; inc = -inc; break; } } } } };
+  QRCodeModel.PAD0 = 0xEC; QRCodeModel.PAD1 = 0x11;
+  QRCodeModel.createData = function(typeNumber, errorCorrectLevel, dataList) { var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel), buffer = new QRBitBuffer(), i; for (i = 0; i < dataList.length; i++) { var data = dataList[i]; buffer.put(data.getMode(), 4); buffer.put(data.getLength(buffer), QRUtil.getLengthInBits(data.getMode(), typeNumber)); data.write(buffer); } var totalDataCount = 0; for (i = 0; i < rsBlocks.length; i++) totalDataCount += rsBlocks[i].dataCount; if (buffer.getLengthInBits() > totalDataCount * 8) throw new Error("code length overflow. (" + buffer.getLengthInBits() + ">" + totalDataCount * 8 + ")"); if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) buffer.put(0, 4); while (buffer.getLengthInBits() % 8 != 0) buffer.putBit(false); while (true) { if (buffer.getLengthInBits() >= totalDataCount * 8) break; buffer.put(QRCodeModel.PAD0, 8); if (buffer.getLengthInBits() >= totalDataCount * 8) break; buffer.put(QRCodeModel.PAD1, 8); } return QRCodeModel.createBytes(buffer, rsBlocks); };
+  QRCodeModel.createBytes = function(buffer, rsBlocks) { var offset = 0, maxDcCount = 0, maxEcCount = 0, i, r, dcdata = new Array(rsBlocks.length), ecdata = new Array(rsBlocks.length); for (r = 0; r < rsBlocks.length; r++) { var dcCount = rsBlocks[r].dataCount, ecCount = rsBlocks[r].totalCount - dcCount; maxDcCount = Math.max(maxDcCount, dcCount); maxEcCount = Math.max(maxEcCount, ecCount); dcdata[r] = new Array(dcCount); for (i = 0; i < dcdata[r].length; i++) dcdata[r][i] = 0xff & buffer.buffer[i + offset]; offset += dcCount; var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount), rawPoly = new QRPolynomial(dcdata[r], rsPoly.getLength() - 1); var modPoly = rawPoly.mod(rsPoly); ecdata[r] = new Array(rsPoly.getLength() - 1); for (i = 0; i < ecdata[r].length; i++) { var modIndex = i + modPoly.getLength() - ecdata[r].length; ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0; } } var totalCodeCount = 0; for (r = 0; r < rsBlocks.length; r++) totalCodeCount += rsBlocks[r].totalCount; var data = new Array(totalCodeCount), index = 0; for (i = 0; i < maxDcCount; i++) for (r = 0; r < rsBlocks.length; r++) if (i < dcdata[r].length) data[index++] = dcdata[r][i]; for (i = 0; i < maxEcCount; i++) for (r = 0; r < rsBlocks.length; r++) if (i < ecdata[r].length) data[index++] = ecdata[r][i]; return data; };
+  return function(typeNumber, errorCorrectLevel) { return new QRCodeModel(typeNumber, QRErrorCorrectLevel[errorCorrectLevel]); };
+})();
+</script>
+<style>
+:root{
+  --bg:#F4F4F2;--surface:#FFFFFF;--surface2:#F0EFF0;--border:#E2E0E3;
+  --text:#1A1A1A;--text2:#6B6B6B;--text3:#9A9A9A;
+  --green:#0F6E56;--green-light:#E1F5EE;--green-text:#085041;
+  --blue:#3C3489;--blue-light:#EEEDFE;--blue-text:#2A2468;
+  --orange:#D4890A;--orange-light:#FFF0D9;--orange-text:#6B3A00;
+  --red:#A32D2D;--red-light:#FCEBEB;--red-text:#791F1F;
+  --radius:12px;--radius-sm:8px;
+  font-size:15px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+input,select,button{font-family:inherit;font-size:14px}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);margin-bottom:0;outline:none}
+input:focus,select:focus{border-color:var(--blue)}
+
+/* ===== NAV ===== */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;position:sticky;top:0;z-index:50}
+.nv{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;font-size:10px;color:var(--text3);border-bottom:2px solid transparent;line-height:1.4;transition:color .15s}
+.nv i{font-size:18px;display:block;margin:0 auto 2px}
+.nv.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.nv-g .nv.on{color:var(--green);border-bottom-color:var(--green)}
+
+/* ===== LAYOUT ===== */
+.pg{display:none;padding:12px}
+.pg.on{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.ctitle{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;color:var(--text)}
+lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;margin-top:10px}
+lbl:first-of-type{margin-top:0}
+
+/* ===== BUTTONS ===== */
+.btn{width:100%;padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer;font-size:14px;color:var(--text);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:500;transition:opacity .15s}
+.btn:active{opacity:.75}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-orange{background:var(--orange);color:#fff;border-color:var(--orange)}
+.btn-red{background:var(--red);color:#fff;border-color:var(--red)}
+.btn-ghost{color:var(--text2);border-color:var(--border)}
+.btn-sm{width:auto;padding:5px 11px;font-size:12px;margin-top:0}
+.btn-xl{padding:16px;font-size:16px;font-weight:600}
+
+/* ===== BADGE ===== */
+.bdg{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.bdg-in{background:var(--green-light);color:var(--green-text)}
+.bdg-out{background:var(--red-light);color:var(--red-text)}
+.bdg-ok{background:var(--green-light);color:var(--green-text)}
+.bdg-warn{background:var(--orange-light);color:var(--orange-text)}
+.bdg-proxy{background:var(--orange-light);color:var(--orange-text)}
+.bdg-co{background:var(--blue-light);color:var(--blue-text)}
+.bdg-adm{background:var(--blue-light);color:var(--blue-text)}
+
+/* ===== BANNERS ===== */
+.banner{border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+.banner-green{background:var(--green-light);border:1px solid #9FE1CB;color:var(--green-text)}
+.banner-blue{background:var(--blue-light);border:1px solid #AFA9EC;color:var(--blue-text)}
+.banner-orange{background:var(--orange-light);border:1px solid #F5C07A;color:var(--orange-text)}
+
+/* ===== ROW ===== */
+.row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:8px}
+.row:last-child{border-bottom:none}
+.empty{text-align:center;color:var(--text3);font-size:13px;padding:24px 0}
+
+/* ===== MODAL ===== */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.mbg.on{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);padding:20px;width:94%;max-width:400px;max-height:92vh;overflow-y:auto}
+.mtitle{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ===== INFOBOX ===== */
+.ibox{background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:8px}
+
+/* ===== STATS ===== */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-val{font-size:22px;font-weight:700;color:var(--text)}
+.stat-label{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ===== TAB ===== */
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:5px 13px;border-radius:99px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer;color:var(--text2);font-weight:500}
+.tab.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* ===== CAM ===== */
+.cam-wrap{position:relative;width:100%;border-radius:var(--radius-sm);overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:8px}
+.cam-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+.cam-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:58%;aspect-ratio:1;border:3px solid #fff;border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.45)}
+.cam-line{position:absolute;left:0;right:0;height:2px;border-radius:1px;animation:scan 2s linear infinite}
+.cam-line-g{background:rgba(15,110,86,.9)}
+.cam-line-o{background:rgba(212,137,10,.9)}
+.cam-line-b{background:rgba(82,74,183,.8)}
+@keyframes scan{0%{top:8%}100%{top:90%}}
+
+/* ===== PW ===== */
+.pw-wrap{position:relative;margin-bottom:0}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;margin:0;width:auto}
+
+/* ===== COMPANY TREE ===== */
+.co-block{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.co-head{display:flex;align-items:center;padding:10px 12px;background:var(--surface2);gap:8px}
+.co-body{padding:8px 12px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:4px 10px;font-size:12px;margin:3px 4px 3px 0}
+.chip button{background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:0;line-height:1;display:flex;align-items:center;width:auto;margin:0}
+.add-inline{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+
+/* ===== ROLE SELECT ===== */
+
+.role-logo{font-size:38px;color:var(--blue);margin-bottom:8px}
+.role-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.role-sub{font-size:13px;color:var(--text2);margin-bottom:32px}
+.role-card{width:100%;max-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.role-card:active{box-shadow:0 0 0 2px var(--blue)}
+.role-card.rc-green{border-left:4px solid var(--green)}
+.role-card.rc-orange{border-left:4px solid var(--orange)}
+.role-card.rc-blue{border-left:4px solid var(--blue)}
+.rc-icon{font-size:24px;margin-bottom:6px}
+.rc-name{font-size:14px;font-weight:600;margin-bottom:2px}
+.rc-desc{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* ===== FIRST SETUP ===== */
+#first-setup{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px}
+
+/* ===== EDIT ROW ===== */
+.edit-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ===== PROGRESS ===== */
+.prog-bar{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin:4px 0}
+.prog-fill{height:100%;border-radius:4px;transition:width .3s}
+
+/* ===== DOT ===== */
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-left:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<!-- ===== 初回セットアップ（起動画面） ===== -->
+<div id="first-setup" style="display:none">
+  <div class="role-logo"><i class="ti ti-building-factory-2" aria-hidden="true"></i></div>
+  <div class="role-title">人工管理システム</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:32px;text-align:center;line-height:1.7">現場のQRコードをスキャンして<br>端末登録と打刻を行います</div>
+  <div style="width:100%;max-width:320px">
+    <div class="card" style="text-align:center;margin-bottom:10px">
+      <div id="fs-vid-wrap" style="display:none">
+        <div class="cam-wrap"><video id="fs-vid" playsinline muted autoplay></video><div class="cam-frame"><div class="cam-line cam-line-g"></div></div></div>
+      </div>
+      <div id="fs-qmsg" style="font-size:13px;color:var(--text2);padding:6px 0;min-height:28px"></div>
+      <button class="btn btn-green" id="fs-cam-btn" onclick="fsStartCam()"><i class="ti ti-qrcode" aria-hidden="true"></i>QRコードをスキャン</button>
+      <button class="btn btn-ghost" id="fs-cam-stop" style="display:none" onclick="fsStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div class="role-card rc-blue" onclick="enterMgrLogin()" style="margin:0">
+        <div class="rc-icon">🛡️</div>
+        <div class="rc-name">管理者として利用</div>
+        <div class="rc-desc">案件・作業員の管理、打刻の確認・修正</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ===== 作業員モード ===== -->
+<div id="worker-mode" style="display:none">
+  <nav class="nav nv-g">
+    <button class="nv on" onclick="wNav('wscan',this)"><i class="ti ti-qrcode" aria-hidden="true"></i>スキャン</button>
+    <button class="nv" onclick="wNav('whist',this)"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>履歴</button>
+    <div style="flex:.4"></div>
+    <button class="nv" style="color:var(--red);font-size:10px" onclick="exitMode()"><i class="ti ti-door-exit" aria-hidden="true"></i>終了</button>
+  </nav>
+
+  <div id="pg-wscan" class="pg on">
+    <div class="banner banner-green">
+      <i class="ti ti-hard-hat" style="font-size:20px" aria-hidden="true"></i>
+      <div style="flex:1">
+        <strong id="w-bname"></strong>
+        <div style="font-size:11px;margin-top:1px" id="w-bco"></div>
+      </div>
+      <button class="btn btn-sm btn-ghost" style="margin:0" onclick="openChangeDev()"><i class="ti ti-pencil" aria-hidden="true"></i>変更</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-ghost btn-sm" style="flex:1;margin:0;font-size:12px" onclick="enterProxy()"><i class="ti ti-replace" aria-hidden="true"></i>代理打刻</button>
+    </div>
+    <div class="card">
+      <div class="ctitle"><i class="ti ti-qrcode" aria-hidden="true"></i>現場QRをスキャン</div>
+      <div id="w-vid-wrap" style="display:none">
+        <div class="cam-wrap"><video id="w-vid" playsinline muted autoplay></video><div class="cam-frame"><div class="cam-line cam-line-g"></div></div></div>
+      </div>
+      <div id="w-qmsg" style="font-size:13px;color:var(--text2);text-align:center;padding:6px 0;min-height:28px"></div>
+      <button class="btn btn-green" id="w-cam-btn" onclick="wStartCam()"><i class="ti ti-camera" aria-hidden="true"></i>カメラを起動してスキャン</button>
+      <button class="btn btn-ghost" id="w-cam-stop" style="display:none" onclick="wStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
+      <button class="btn btn-ghost" onclick="openManual(false)" style="margin-top:6px;font-size:12px"><i class="ti ti-hand-click" aria-hidden="true"></i>手動で案件を選択（デモ用）</button>
+    </div>
+    <div class="card" id="w-panel" style="display:none">
+      <div class="ctitle"><i class="ti ti-map-pin" aria-hidden="true"></i><span id="w-pname"></span></div>
+      <div id="w-psub" style="font-size:12px;color:var(--text2);margin-bottom:12px"></div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px">
+        👤 <strong id="w-sname"></strong> <span id="w-sco" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn btn-green btn-xl" onclick="wStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
+        <button class="btn btn-red btn-xl" onclick="wStamp('out')"><i class="ti ti-logout" aria-hidden="true"></i>退勤</button>
+      </div>
+      <button class="btn btn-ghost" onclick="wCancel()" style="margin-top:6px;font-size:13px">キャンセル</button>
+    </div>
+  </div>
+
+  <div id="pg-whist" class="pg">
+    <div class="card">
+      <div class="ctitle"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴</div>
+      <div id="w-hist"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 代理打刻モード ===== -->
+<div id="proxy-mode" style="display:none">
+  <nav class="nav">
+    <button class="nv on" style="color:var(--orange);border-bottom-color:var(--orange)"><i class="ti ti-replace" aria-hidden="true"></i>代理打刻</button>
+    <div style="flex:1"></div>
+    <button class="nv" style="color:var(--red);font-size:10px" onclick="exitMode()"><i class="ti ti-door-exit" aria-hidden="true"></i>終了</button>
+  </nav>
+  <div style="padding:12px">
+    <div class="banner banner-orange">
+      <i class="ti ti-replace" style="font-size:20px" aria-hidden="true"></i>
+      <div><strong>代理打刻モード</strong><div style="font-size:11px;margin-top:1px">スマホ忘れ・打刻忘れの作業員を代行</div></div>
+    </div>
+    <div class="card">
+      <div class="ctitle"><i class="ti ti-qrcode" aria-hidden="true"></i>現場QRをスキャン</div>
+      <div id="p-vid-wrap" style="display:none">
+        <div class="cam-wrap"><video id="p-vid" playsinline muted autoplay></video><div class="cam-frame"><div class="cam-line cam-line-o"></div></div></div>
+      </div>
+      <div id="p-qmsg" style="font-size:13px;color:var(--text2);text-align:center;padding:6px 0;min-height:28px"></div>
+      <button class="btn btn-orange" id="p-cam-btn" onclick="pStartCam()"><i class="ti ti-camera" aria-hidden="true"></i>カメラを起動してスキャン</button>
+      <button class="btn btn-ghost" id="p-cam-stop" style="display:none" onclick="pStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
+      <button class="btn btn-ghost" onclick="openManual(true)" style="margin-top:6px;font-size:12px"><i class="ti ti-hand-click" aria-hidden="true"></i>手動で案件を選択（デモ用）</button>
+    </div>
+    <div class="card" id="p-panel" style="display:none">
+      <div class="ctitle"><i class="ti ti-map-pin" aria-hidden="true"></i><span id="p-pname"></span></div>
+      <div id="p-psub" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+      <lbl>代理する作業員の会社</lbl>
+      <select id="p-co" onchange="pUpdW()"></select>
+      <lbl style="margin-top:10px">代理する作業員名</lbl>
+      <select id="p-w" style="margin-bottom:0"></select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+        <button class="btn btn-green btn-xl" onclick="pStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
+        <button class="btn btn-red btn-xl" onclick="pStamp('out')"><i class="ti ti-logout" aria-hidden="true"></i>退勤</button>
+      </div>
+      <button class="btn btn-ghost" onclick="pCancel()" style="margin-top:6px;font-size:13px">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 管理者モード ===== -->
+<div id="mgr-mode" style="display:none">
+  <div id="mgr-login" style="padding:12px">
+    <div class="card">
+      <div class="ctitle"><i class="ti ti-shield-lock" aria-hidden="true"></i>管理者ログイン</div>
+
+      <!-- ログイン種別選択 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <button class="btn btn-blue" id="tab-super" onclick="switchLoginTab('super')" style="margin:0"><i class="ti ti-shield-check" aria-hidden="true"></i>スーパー管理者</button>
+        <button class="btn btn-ghost" id="tab-chief" onclick="switchLoginTab('chief')" style="margin:0"><i class="ti ti-hard-hat" aria-hidden="true"></i>現場責任者</button>
+      </div>
+
+      <div id="login-tab-super">
+        <div class="ibox"><strong>スーパー管理者</strong>（元請け会社）<br>全機能使用可・パスワード変更可<br>初期PW：<strong>admin1234</strong></div>
+        <lbl>パスワード</lbl>
+        <div class="pw-wrap"><input type="password" id="mgr-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')mgrLogin()"><button class="pw-toggle btn-sm" onclick="tglPw('mgr-pw',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <button class="btn btn-blue" onclick="mgrLogin()" style="margin-top:12px"><i class="ti ti-login" aria-hidden="true"></i>ログイン</button>
+        <div id="mgr-err" style="font-size:12px;color:var(--red);margin-top:6px;display:none">パスワードが正しくありません</div>
+
+        <!-- パスワードリセット -->
+        <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">パスワードをお忘れの方</div>
+          <div id="reset-step1">
+            <div class="ibox">「リセットメールを送る」をタップすると、登録メールアドレスに確認コードが届きます。</div>
+            <button class="btn btn-ghost" onclick="sendResetMail()" id="reset-mail-btn"><i class="ti ti-mail" aria-hidden="true"></i>リセットメールを送る</button>
+            <div id="reset-msg" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
+          </div>
+          <div id="reset-step2" style="display:none">
+            <lbl>届いた確認コード（6桁）</lbl>
+            <input type="text" id="reset-token" placeholder="123456" maxlength="6" style="letter-spacing:4px;text-align:center;font-size:20px;font-weight:600">
+            <lbl style="margin-top:10px">新しいパスワード（6文字以上）</lbl>
+            <div class="pw-wrap"><input type="password" id="reset-newpw" placeholder="新しいパスワード"><button class="pw-toggle btn-sm" onclick="tglPw('reset-newpw',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+            <button class="btn btn-blue" onclick="doReset()" style="margin-top:10px"><i class="ti ti-lock-open" aria-hidden="true"></i>パスワードをリセット</button>
+            <div id="reset-err" style="font-size:12px;color:var(--red);margin-top:6px;display:none"></div>
+            <button class="btn btn-ghost" onclick="cancelReset()" style="margin-top:4px;font-size:13px">キャンセル</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="login-tab-chief" style="display:none">
+        <div class="ibox"><strong>現場責任者</strong><br>打刻の追加・修正・代理打刻が可能<br>初期PW：<strong>chief1234</strong></div>
+        <lbl>パスワード</lbl>
+        <div class="pw-wrap"><input type="password" id="chief-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')chiefLogin()"><button class="pw-toggle btn-sm" onclick="tglPw('chief-pw',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <button class="btn btn-orange" onclick="chiefLogin()" style="margin-top:12px"><i class="ti ti-login" aria-hidden="true"></i>ログイン</button>
+        <div id="chief-err" style="font-size:12px;color:var(--red);margin-top:6px;display:none">パスワードが正しくありません</div>
+      </div>
+
+      <button class="btn btn-ghost" onclick="exitMode()" style="margin-top:10px;font-size:13px"><i class="ti ti-arrow-left" aria-hidden="true"></i>戻る</button>
+    </div>
+  </div>
+  <div id="mgr-panel" style="display:none">
+    <nav class="nav" id="mgr-nav">
+      <button class="nv on" onclick="mNav('scan',this)"><i class="ti ti-qrcode" aria-hidden="true"></i>打刻</button>
+      <button class="nv super-only" onclick="mNav('proj',this)"><i class="ti ti-building-factory-2" aria-hidden="true"></i>案件</button>
+      <button class="nv super-only" onclick="mNav('hist',this)"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>履歴</button>
+      <button class="nv super-only" onclick="mNav('sum',this)"><i class="ti ti-chart-bar" aria-hidden="true"></i>集計</button>
+      <button class="nv" onclick="mNav('edit',this)"><i class="ti ti-edit" aria-hidden="true"></i>管理</button>
+      <button class="nv super-only" onclick="mNav('cfg',this)"><i class="ti ti-settings" aria-hidden="true"></i>設定</button>
+    </nav>
+
+    <!-- 打刻 -->
+    <div id="mp-scan" class="pg on">
+      <div id="mgr-banner" class="banner banner-blue">
+        <i class="ti ti-shield-check" style="font-size:18px" aria-hidden="true"></i>
+        <div style="flex:1" id="mgr-banner-text">管理者モード</div>
+        <button class="btn btn-sm" style="margin:0;color:var(--blue);border-color:var(--blue)" onclick="mgrLogout()">ログアウト</button>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-qrcode" aria-hidden="true"></i>QRスキャン</div>
+        <div id="m-vid-wrap" style="display:none">
+          <div class="cam-wrap"><video id="m-vid" playsinline muted autoplay></video><div class="cam-frame"><div class="cam-line cam-line-b"></div></div></div>
+        </div>
+        <div id="m-qmsg" style="font-size:13px;color:var(--text2);text-align:center;padding:6px 0;min-height:28px"></div>
+        <button class="btn btn-blue" id="m-cam-btn" onclick="mStartCam()"><i class="ti ti-camera" aria-hidden="true"></i>カメラを起動してスキャン</button>
+        <button class="btn btn-ghost" id="m-cam-stop" style="display:none" onclick="mStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>停止</button>
+        <button class="btn btn-ghost" onclick="openManual(false)" style="margin-top:6px;font-size:12px"><i class="ti ti-hand-click" aria-hidden="true"></i>手動打刻</button>
+      </div>
+      <div class="card" id="m-panel" style="display:none">
+        <div class="ctitle"><i class="ti ti-map-pin" aria-hidden="true"></i><span id="m-pname"></span></div>
+        <lbl>会社</lbl><select id="m-co" onchange="mUpdW()"></select>
+        <lbl style="margin-top:10px">作業員</lbl><select id="m-w" style="margin-bottom:0"></select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+          <button class="btn btn-green" onclick="mStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
+          <button class="btn btn-red" onclick="mStamp('out')"><i class="ti ti-logout" aria-hidden="true"></i>退勤</button>
+        </div>
+        <button class="btn btn-ghost" onclick="mCancel()" style="margin-top:4px;font-size:13px">キャンセル</button>
+      </div>
+    </div>
+
+    <!-- 案件 -->
+    <div id="mp-proj" class="pg">
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-refresh" aria-hidden="true"></i>スプレッドシートから読み込む</div>
+        <div class="ibox">Googleスプレッドシートの「案件マスタ」シートに入力した案件を読み込みます。<br>GAS URLが設定済みであることを確認してください。</div>
+        <button class="btn btn-blue" onclick="syncProjs()" id="sync-btn"><i class="ti ti-cloud-download" aria-hidden="true"></i>案件を読み込む</button>
+        <div id="sync-msg" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-plus" aria-hidden="true"></i>手動で案件を追加（スプレッドシート未使用時）</div>
+        <lbl>案件名 *</lbl><input type="text" id="pn" placeholder="〇〇ビル外壁工事">
+        <lbl style="margin-top:10px">工事場所</lbl><input type="text" id="pa" placeholder="茨城県ひたちなか市...">
+        <lbl style="margin-top:10px">工事場所詳細1</lbl><input type="text" id="pa2" placeholder="○○ビル外壁南面">
+        <lbl style="margin-top:10px">工事場所詳細2</lbl><input type="text" id="pa3" placeholder="3〜5階部分">
+        <lbl style="margin-top:10px">東亜担当者</lbl><input type="text" id="pm" placeholder="田中 太郎">
+        <lbl style="margin-top:10px">納期</lbl><input type="date" id="ps">
+        <lbl style="margin-top:10px">状態</lbl><select id="pe" style="margin-bottom:0"><option value="進行中">進行中</option><option value="準備中">準備中</option><option value="完了">完了</option></select>
+        <button class="btn btn-blue" onclick="addProj()" style="margin-top:14px"><i class="ti ti-qrcode" aria-hidden="true"></i>登録してQR生成</button>
+      </div>
+      <div class="card"><div class="ctitle"><i class="ti ti-list" aria-hidden="true"></i>登録済み案件</div><div id="proj-list"><div class="empty">案件がありません</div></div></div>
+    </div>
+
+    <!-- 履歴 -->
+    <div id="mp-hist" class="pg">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="rf-p" style="flex:1;font-size:13px" onchange="renderRecs()"><option value="">すべての案件</option></select>
+        <select id="rf-c" style="flex:1;font-size:13px" onchange="renderRecs()"><option value="">すべての会社</option></select>
+      </div>
+      <div class="card"><div id="rec-list"><div class="empty">データなし</div></div></div>
+    </div>
+
+    <!-- 集計 -->
+    <div id="mp-sum" class="pg">
+      <div class="tabs">
+        <button class="tab on" onclick="sSTab('proj',this)">案件別</button>
+        <button class="tab" onclick="sSTab('work',this)">作業員別</button>
+        <button class="tab" onclick="sSTab('comp',this)">会社別</button>
+        <button class="tab" onclick="sSTab('det',this)">明細</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-val" id="st-nk">0</div><div class="stat-label">総人工（日）</div></div>
+        <div class="stat"><div class="stat-val" id="st-h">0h</div><div class="stat-label">総労働時間</div></div>
+        <div class="stat"><div class="stat-val" id="st-w">0</div><div class="stat-label">延べ作業員数</div></div>
+        <div class="stat"><div class="stat-val" id="st-p">0</div><div class="stat-label">稼働案件数</div></div>
+      </div>
+      <div id="s-proj" class="card"></div>
+      <div id="s-work" class="card" style="display:none"></div>
+      <div id="s-comp" class="card" style="display:none"></div>
+      <div id="s-det" class="card" style="display:none"></div>
+    </div>
+
+    <!-- 管理 -->
+    <div id="mp-edit" class="pg">
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-clock-plus" aria-hidden="true"></i>打刻の追加（過去日付対応）</div>
+        <lbl>案件</lbl><select id="ae-p"></select>
+        <lbl style="margin-top:10px">会社</lbl><select id="ae-c" onchange="aeUpdW()"></select>
+        <lbl style="margin-top:10px">作業員</lbl><select id="ae-w"></select>
+        <div class="edit-row" style="margin-top:10px">
+          <div><lbl>日付</lbl><input type="date" id="ae-d"></div>
+          <div><lbl>時刻</lbl><input type="time" id="ae-t"></div>
+        </div>
+        <lbl style="margin-top:10px">種別</lbl><select id="ae-type"><option value="in">出勤</option><option value="out">退勤</option></select>
+        <lbl style="margin-top:10px">備考</lbl><input type="text" id="ae-note" placeholder="打刻忘れのため管理者入力">
+        <button class="btn btn-orange" onclick="adminAdd()" style="margin-top:14px"><i class="ti ti-clock-plus" aria-hidden="true"></i>追加する</button>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-table-edit" aria-hidden="true"></i>打刻の編集・削除</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <select id="ef-p" style="flex:1;font-size:13px" onchange="renderEditRecs()"><option value="">すべての案件</option></select>
+          <select id="ef-c" style="flex:1;font-size:13px" onchange="renderEditRecs()"><option value="">すべての会社</option></select>
+        </div>
+        <div id="edit-rec-list"><div class="empty">データなし</div></div>
+      </div>
+    </div>
+
+    <!-- 設定 -->
+    <div id="mp-cfg" class="pg">
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>会社・作業員管理</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" id="co-inp" placeholder="会社名を追加" style="flex:1;margin:0">
+          <button class="btn btn-blue btn-sm" onclick="addCo()"><i class="ti ti-plus" aria-hidden="true"></i>追加</button>
+        </div>
+        <div id="co-tree"><div class="empty">未登録</div></div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-clock" aria-hidden="true"></i>人工計算設定</div>
+        <lbl>標準労働時間（h）</lbl><input type="number" id="std-h" value="8" min="1" max="24">
+        <lbl style="margin-top:10px">半日しきい値（h）</lbl><input type="number" id="half-h" value="4" min="1" max="12">
+        <div class="ibox" style="margin-top:10px">標準以上 → <strong>1.0人工</strong>　しきい値以上 → <strong>0.5人工</strong>　未満 → <strong>0.25人工</strong></div>
+        <button class="btn btn-blue" onclick="saveCalc()"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-key" aria-hidden="true"></i>スーパー管理者パスワード変更</div>
+        <lbl>現在のパスワード</lbl><div class="pw-wrap"><input type="password" id="pw-o"><button class="pw-toggle btn-sm" onclick="tglPw('pw-o',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <lbl style="margin-top:10px">新しいパスワード（6文字以上）</lbl><div class="pw-wrap"><input type="password" id="pw-n"><button class="pw-toggle btn-sm" onclick="tglPw('pw-n',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <lbl style="margin-top:10px">確認</lbl><div class="pw-wrap"><input type="password" id="pw-c"><button class="pw-toggle btn-sm" onclick="tglPw('pw-c',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <button class="btn btn-blue" onclick="chgPw()" style="margin-top:12px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更する</button>
+        <div id="pw-msg" style="font-size:12px;margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-key" aria-hidden="true"></i>現場責任者パスワード変更</div>
+        <div class="ibox">初期PW：<strong>chief1234</strong></div>
+        <lbl>現在のパスワード</lbl><div class="pw-wrap"><input type="password" id="cpw-o"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-o',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <lbl style="margin-top:10px">新しいパスワード（6文字以上）</lbl><div class="pw-wrap"><input type="password" id="cpw-n"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-n',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <lbl style="margin-top:10px">確認</lbl><div class="pw-wrap"><input type="password" id="cpw-c"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-c',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
+        <button class="btn btn-orange" onclick="chgChiefPw()" style="margin-top:12px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更する</button>
+        <div id="cpw-msg" style="font-size:12px;margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-table-export" aria-hidden="true"></i>Google スプレッドシート連携</div>
+        <lbl>GAS Web アプリURL</lbl><input type="text" id="gas-url" placeholder="https://script.google.com/macros/s/...">
+        <button class="btn btn-blue" onclick="saveGas()"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
+        <div id="gas-st" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
+        <button class="btn btn-ghost" onclick="exportCSV()" style="margin-top:4px"><i class="ti ti-download" aria-hidden="true"></i>CSVエクスポート</button>
+      </div>
+      <div class="card"><button class="btn btn-red" onclick="clearAll()"><i class="ti ti-trash" aria-hidden="true"></i>全データをリセット</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== モーダル群 ===== -->
+<!-- 端末登録モーダル（初回QRスキャン時） -->
+<div class="mbg" id="reg-modal">
+  <div class="modal">
+    <div class="mtitle"><i class="ti ti-device-mobile" aria-hidden="true"></i>端末登録</div>
+    <div class="ibox">
+      <strong id="reg-proj-name"></strong> の現場QRを読み取りました。<br>
+      初めてのご利用です。情報を登録してください。
+    </div>
+    <lbl>会社名</lbl>
+    <select id="reg-co" onchange="regUpdW()"></select>
+    <lbl style="margin-top:10px">お名前</lbl>
+    <select id="reg-w"></select>
+    <lbl style="margin-top:10px">生年月日（本人確認用）</lbl>
+    <input type="date" id="reg-dob" style="margin-bottom:0">
+    <div id="reg-err" style="font-size:12px;color:var(--red);margin-top:6px;display:none"></div>
+    <button class="btn btn-green" onclick="completeReg()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>登録して打刻へ進む</button>
+    <button class="btn btn-ghost" onclick="cancelReg()">キャンセル</button>
+  </div>
+</div>
+
+<!-- 手動打刻 -->
+<div class="mbg" id="manual-modal">
+  <div class="modal">
+    <div class="mtitle">案件を選択して打刻</div>
+    <lbl>案件</lbl><select id="mm-p"></select>
+    <lbl style="margin-top:10px">会社</lbl><select id="mm-c" onchange="mmUpdW()"></select>
+    <lbl style="margin-top:10px">作業員</lbl><select id="mm-w"></select>
+    <lbl style="margin-top:10px">種別</lbl><select id="mm-t" style="margin-bottom:0"><option value="in">出勤</option><option value="out">退勤</option></select>
+    <button class="btn btn-blue" onclick="submitManual()" style="margin-top:14px">打刻する</button>
+    <button class="btn btn-ghost" onclick="closeM('manual-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- QR -->
+<div class="mbg" id="qr-modal">
+  <div class="modal">
+    <div class="mtitle" id="qr-title"></div>
+    <div style="background:#fff;border-radius:var(--radius-sm);padding:12px;text-align:center;margin-bottom:12px;border:1px solid var(--border)">
+      <canvas id="qr-cvs" width="200" height="200"></canvas>
+      <div id="qr-sub" style="font-size:12px;color:#666;margin-top:6px"></div>
+    </div>
+    <button class="btn btn-blue" onclick="dlQR()"><i class="ti ti-download" aria-hidden="true"></i>ダウンロード</button>
+    <button class="btn btn-ghost" onclick="closeM('qr-modal')">閉じる</button>
+  </div>
+</div>
+
+<!-- 編集 -->
+<div class="mbg" id="edit-modal">
+  <div class="modal">
+    <div class="mtitle"><i class="ti ti-edit" aria-hidden="true"></i>打刻を編集</div>
+    <input type="hidden" id="edit-id">
+    <lbl>案件</lbl><select id="ed-p"></select>
+    <lbl style="margin-top:10px">会社</lbl><select id="ed-c" onchange="edUpdW()"></select>
+    <lbl style="margin-top:10px">作業員</lbl><select id="ed-w"></select>
+    <div class="edit-row" style="margin-top:10px">
+      <div><lbl>日付</lbl><input type="date" id="ed-d"></div>
+      <div><lbl>時刻</lbl><input type="time" id="ed-t"></div>
+    </div>
+    <lbl style="margin-top:10px">種別</lbl><select id="ed-type"><option value="in">出勤</option><option value="out">退勤</option></select>
+    <lbl style="margin-top:10px">備考</lbl><input type="text" id="ed-note">
+    <button class="btn btn-blue" onclick="saveEdit()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
+    <button class="btn btn-red" onclick="delEdit()"><i class="ti ti-trash" aria-hidden="true"></i>削除</button>
+    <button class="btn btn-ghost" onclick="closeM('edit-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- 端末変更 -->
+<div class="mbg" id="chdev-modal">
+  <div class="modal">
+    <div class="mtitle"><i class="ti ti-pencil" aria-hidden="true"></i>端末の登録変更</div>
+    <div class="ibox">この端末を使う作業員を変更します。</div>
+    <lbl>会社名</lbl><select id="cd-c" onchange="cdUpdW()"></select>
+    <lbl style="margin-top:10px">お名前</lbl><select id="cd-w" style="margin-bottom:0"></select>
+    <button class="btn btn-green" onclick="saveChDev()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更して保存</button>
+    <button class="btn btn-ghost" onclick="closeM('chdev-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- 打刻完了 -->
+<div class="mbg" id="stamp-modal">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:56px;margin-bottom:10px" id="si"></div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:10px" id="st"></div>
+    <div id="sd" style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:2"></div>
+    <div id="snk" style="font-size:13px;background:var(--surface2);border-radius:var(--radius-sm);padding:10px;margin-bottom:16px"></div>
+    <button class="btn btn-blue btn-xl" onclick="closeM('stamp-modal')">OK</button>
+  </div>
+</div>
+
+<script>
+const DP='admin1234';
+const DCP='chief1234';
+let S={co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP};
+let D={ok:false,cid:'',cn:'',wid:'',wn:''};
+let mgrRole=null; // 'super' or 'chief'
+let wSP=null,pSP=null,mSP=null;
+let wS=null,wT=null,pS=null,pT=null,mS=null,mT=null;
+let curQR=null,manProxy=false;
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function loadAll(){
+  try{const s=localStorage.getItem('ca6s');if(s)S=Object.assign({co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP},JSON.parse(s));}catch(e){}
+  try{const d=localStorage.getItem('ca6d');if(d)D=Object.assign({ok:false,cid:'',cn:'',wid:'',wn:''},JSON.parse(d));}catch(e){}
+}
+function svS(){try{localStorage.setItem('ca6s',JSON.stringify(S));}catch(e){}}
+function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
+
+function init(){loadAll();D.ok?enterWorker():showFirst();}
+
+/* ===== 画面切替 ===== */
+function hideAll(){['first-setup','worker-mode','proxy-mode','mgr-mode'].forEach(id=>g(id).style.display='none');}
+function showFirst(){
+  hideAll();g('first-setup').style.display='flex';
+}
+function g(id){return document.getElementById(id);}
+
+/* ===== 初回起動カメラ（QRスキャンで端末登録へ） ===== */
+let fsS=null,fsT=null,fsPendingProj=null;
+async function fsStartCam(){
+  if(!navigator.mediaDevices){alert('カメラに対応していません');return;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    g('fs-vid').srcObject=stream;fsS=stream;
+    g('fs-vid-wrap').style.display='block';
+    g('fs-cam-btn').style.display='none';g('fs-cam-stop').style.display='flex';
+    g('fs-qmsg').textContent='QRコードをカメラに向けてください';
+    fsT=setInterval(()=>{
+      const vid=g('fs-vid');if(!vid.videoWidth)return;
+      const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
+      c.getContext('2d').drawImage(vid,0,0);
+      if(window.BarcodeDetector)new BarcodeDetector({formats:['qr_code']}).detect(c).then(rs=>{
+        if(rs.length)fsOnQR(rs[0].rawValue);
+      }).catch(()=>{});
+    },300);
+  }catch(e){alert('カメラ起動失敗: '+e.message);}
+}
+function fsStopCam(){
+  if(fsS){fsS.getTracks().forEach(t=>t.stop());fsS=null;}
+  clearInterval(fsT);fsT=null;
+  g('fs-vid-wrap').style.display='none';
+  g('fs-cam-btn').style.display='flex';g('fs-cam-stop').style.display='none';
+  g('fs-qmsg').textContent='';
+}
+function fsOnQR(raw){
+  fsStopCam();
+  try{
+    const d=JSON.parse(raw);
+    const proj=S.projs.find(p=>p.id===d.id);
+    if(!proj){g('fs-qmsg').textContent='⚠ 未登録の案件QRです。管理者に確認してください。';return;}
+    fsPendingProj=proj;
+    openRegModal(proj);
+  }catch(e){g('fs-qmsg').textContent='⚠ 対応していないQRコードです';}
+}
+
+/* ===== 端末登録モーダル ===== */
+function openRegModal(proj){
+  g('reg-proj-name').textContent=proj.n;
+  g('reg-err').style.display='none';
+  popCoSel(g('reg-co'),'');regUpdW();
+  // 生年月日の初期値（入力しやすいよう25年前を仮設定）
+  const y=new Date().getFullYear()-25;
+  g('reg-dob').value=`${y}-01-01`;
+  openM('reg-modal');
+}
+function regUpdW(){popWSel(g('reg-w'),g('reg-co').value,'');}
+function completeReg(){
+  const cid=g('reg-co').value,wid=g('reg-w').value,dob=g('reg-dob').value;
+  const co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);
+  const err=g('reg-err');
+  if(!co||!w){err.textContent='会社名とお名前を選択してください';err.style.display='block';return;}
+  if(!dob){err.textContent='生年月日を入力してください';err.style.display='block';return;}
+  D={ok:true,cid:co.id,cn:co.n,wid:w.id,wn:w.n,dob};
+  svD();closeM('reg-modal');
+  enterWorker();
+  // そのまま読み取った案件のパネルを表示
+  if(fsPendingProj){wShowPanel(fsPendingProj);fsPendingProj=null;}
+}
+function cancelReg(){closeM('reg-modal');fsPendingProj=null;g('fs-qmsg').textContent='';}
+
+/* ===== 端末変更 ===== */
+function openChangeDev(){popCoSel(g('cd-c'),D.cid);cdUpdW();openM('chdev-modal');}
+function cdUpdW(){popWSel(g('cd-w'),g('cd-c').value,D.wid);}
+function saveChDev(){
+  const cid=g('cd-c').value,wid=g('cd-w').value;
+  const co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);
+  if(!co||!w)return;
+  D={ok:true,cid:co.id,cn:co.n,wid:w.id,wn:w.n};svD();
+  closeM('chdev-modal');updWBanner();
+  g('rc-worker-name').textContent=`${D.wn}（${D.cn}）として利用`;
+}
+function updWBanner(){g('w-bname').textContent=D.wn;g('w-bco').textContent=D.cn;}
+
+/* ===== ロール選択 ===== */
+function enterWorker(){
+  hideAll();g('worker-mode').style.display='block';
+  updWBanner();
+  wNav('wscan',g('worker-mode').querySelector('.nv'));
+}
+function enterProxy(){hideAll();g('proxy-mode').style.display='block';}
+function enterMgrLogin(){
+  hideAll();g('mgr-mode').style.display='block';
+  g('mgr-login').style.display='block';g('mgr-panel').style.display='none';
+}
+function exitMode(){
+  wStopCam();pStopCam();mStopCam();wCancel();pCancel();mCancel();
+  // 登録済みなら作業員画面に戻る、未登録なら起動画面へ
+  D.ok?enterWorker():showFirst();
+}
+
+/* ===== ログインタブ切替 ===== */
+function switchLoginTab(tab){
+  g('tab-super').className='btn '+(tab==='super'?'btn-blue':'btn-ghost');
+  g('tab-chief').className='btn '+(tab==='chief'?'btn-orange':'btn-ghost');
+  g('login-tab-super').style.display=tab==='super'?'block':'none';
+  g('login-tab-chief').style.display=tab==='chief'?'block':'none';
+}
+
+/* ===== 管理者ログイン ===== */
+function mgrLogin(){
+  const pw=g('mgr-pw').value;
+  if(pw===S.pw){
+    mgrRole='super';
+    g('mgr-login').style.display='none';g('mgr-panel').style.display='block';
+    g('mgr-pw').value='';g('mgr-err').style.display='none';
+    // スーパー管理者：全タブ表示
+    document.querySelectorAll('.super-only').forEach(el=>el.style.display='flex');
+    g('mgr-banner-text').textContent='スーパー管理者モード';
+    g('mgr-banner').className='banner banner-blue';
+    refMgr();
+  }else{g('mgr-err').style.display='block';}
+}
+function chiefLogin(){
+  const pw=g('chief-pw').value;
+  if(pw===S.cpw){
+    mgrRole='chief';
+    g('mgr-login').style.display='none';g('mgr-panel').style.display='block';
+    g('chief-pw').value='';g('chief-err').style.display='none';
+    // 現場責任者：制限タブを非表示
+    document.querySelectorAll('.super-only').forEach(el=>el.style.display='none');
+    g('mgr-banner-text').textContent='現場責任者モード';
+    g('mgr-banner').className='banner banner-orange';
+    // 管理タブを表示してそこに移動
+    mNav('edit', g('mgr-nav').querySelector('.nv:not(.super-only)'));
+  }else{g('chief-err').style.display='block';}
+}
+function mgrLogout(){
+  mStopCam();mgrRole=null;
+  g('mgr-login').style.display='block';g('mgr-panel').style.display='none';
+  // ログインタブを初期状態に戻す
+  switchLoginTab('super');
+  D.ok?enterWorker():showFirst();
+}
+function tglPw(id,btn){const el=g(id);const s=el.type==='password';el.type=s?'text':'password';btn.innerHTML=s?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';}
+function chgPw(){
+  const o=g('pw-o').value,n=g('pw-n').value,c=g('pw-c').value,msg=g('pw-msg');
+  if(o!==S.pw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
+  if(n.length<6){msg.style.color='var(--red)';msg.textContent='6文字以上で設定してください';return;}
+  if(n!==c){msg.style.color='var(--red)';msg.textContent='確認パスワードが一致しません';return;}
+  S.pw=n;svS();msg.style.color='var(--green)';msg.textContent='✅ 変更しました';
+  ['pw-o','pw-n','pw-c'].forEach(id=>g(id).value='');
+}
+function chgChiefPw(){
+  const o=g('cpw-o').value,n=g('cpw-n').value,c=g('cpw-c').value,msg=g('cpw-msg');
+  if(o!==S.cpw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
+  if(n.length<6){msg.style.color='var(--red)';msg.textContent='6文字以上で設定してください';return;}
+  if(n!==c){msg.style.color='var(--red)';msg.textContent='確認パスワードが一致しません';return;}
+  S.cpw=n;svS();msg.style.color='var(--green)';msg.textContent='✅ 変更しました';
+  ['cpw-o','cpw-n','cpw-c'].forEach(id=>g(id).value='');
+}
+
+/* ===== パスワードリセット ===== */
+let resetToken=null;
+async function sendResetMail(){
+  if(!S.gas){
+    g('reset-msg').textContent='⚠ GAS URLが設定されていません。';
+    return;
+  }
+  const btn=g('reset-mail-btn');
+  btn.disabled=true;
+  g('reset-msg').textContent='送信中...';
+  try{
+    // 6桁のランダムコードを生成
+    resetToken=Math.floor(100000+Math.random()*900000).toString();
+    // GASにメール送信を依頼
+    const url=S.gas+'?action=sendResetMail&token='+resetToken;
+    const res=await fetch(url);
+    const data=await res.json();
+    if(data.status==='ok'){
+      g('reset-msg').textContent='✅ メールを送信しました。届いたコードを入力してください。';
+      g('reset-step2').style.display='block';
+      g('reset-token').focus();
+    }else{
+      g('reset-msg').textContent='⚠ 送信に失敗しました：'+( data.message||'');
+      btn.disabled=false;
+    }
+  }catch(e){
+    g('reset-msg').textContent='⚠ エラー：'+e.message;
+    btn.disabled=false;
+  }
+}
+function doReset(){
+  const token=g('reset-token').value.trim();
+  const newpw=g('reset-newpw').value;
+  const err=g('reset-err');
+  if(!resetToken){err.textContent='先にリセットメールを送信してください';err.style.display='block';return;}
+  if(token!==resetToken){err.textContent='確認コードが正しくありません';err.style.display='block';return;}
+  if(newpw.length<6){err.textContent='6文字以上で設定してください';err.style.display='block';return;}
+  S.pw=newpw;svS();
+  resetToken=null;
+  alert('✅ パスワードをリセットしました。新しいパスワードでログインしてください。');
+  cancelReset();
+}
+function cancelReset(){
+  resetToken=null;
+  g('reset-step2').style.display='none';
+  g('reset-msg').textContent='';
+  g('reset-token').value='';
+  g('reset-newpw').value='';
+  g('reset-err').style.display='none';
+  g('reset-mail-btn').disabled=false;
+}
+
+/* ===== ナビ ===== */
+function wNav(p,btn){
+  g('worker-mode').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
+  g('worker-mode').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
+  g('pg-'+p).classList.add('on');if(btn)btn.classList.add('on');
+  if(p==='whist')renderWHist();
+}
+function mNav(p,btn){
+  g('mgr-panel').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
+  g('mgr-panel').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
+  g('mp-'+p).classList.add('on');if(btn)btn.classList.add('on');
+  if(p==='sum')renderSum();if(p==='edit')refEdit();if(p==='cfg')refCfg();
+}
+function refMgr(){renderProjs();renderRecs();renderFilters();renderSum();}
+function refCfg(){
+  renderCoTree();
+  g('gas-url').value=S.gas||'';g('std-h').value=S.stdH||8;g('half-h').value=S.halfH||4;
+}
+
+/* ===== 会社・作業員 ===== */
+function popCoSel(sel,sid){sel.innerHTML=S.co.length?S.co.map(c=>`<option value="${c.id}"${c.id===sid?' selected':''}>${c.n}</option>`).join(''):'<option value="">会社未登録</option>';}
+function popWSel(sel,cid,sid){
+  const co=S.co.find(c=>c.id===cid);
+  if(!co||!co.ws.length){sel.innerHTML='<option value="">作業員未登録</option>';return;}
+  sel.innerHTML=co.ws.map(w=>`<option value="${w.id}"${w.id===sid?' selected':''}>${w.n}</option>`).join('');
+}
+function addCo(){
+  const n=g('co-inp').value.trim();if(!n)return;
+  if(S.co.find(c=>c.n===n)){alert('同名の会社が登録されています');return;}
+  S.co.push({id:uid(),n,ws:[]});svS();renderCoTree();renderFilters();g('co-inp').value='';
+}
+function renderCoTree(){
+  const el=g('co-tree');
+  if(!S.co.length){el.innerHTML='<div class="empty">未登録</div>';return;}
+  el.innerHTML=S.co.map(c=>`
+    <div class="co-block">
+      <div class="co-head">
+        <i class="ti ti-building" style="font-size:15px;color:var(--text3)"></i>
+        <span style="flex:1;font-size:13px;font-weight:600">${c.n}</span>
+        <span style="font-size:11px;color:var(--text3)">${c.ws.length}名</span>
+        <button class="btn btn-sm btn-red" onclick="delCo('${c.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="co-body">
+        <div>${c.ws.map(w=>`<span class="chip">${w.n}<button onclick="delW('${c.id}','${w.id}')"><i class="ti ti-x"></i></button></span>`).join('')||'<span style="font-size:12px;color:var(--text3)">未登録</span>'}</div>
+        <div class="add-inline">
+          <input type="text" id="wi-${c.id}" placeholder="作業員名" style="flex:1;font-size:13px;margin:0">
+          <button class="btn btn-blue btn-sm" onclick="addWI('${c.id}')"><i class="ti ti-plus"></i>追加</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function addWI(cid){
+  const inp=g('wi-'+cid);const n=inp?.value.trim();if(!n)return;
+  const co=S.co.find(c=>c.id===cid);if(!co)return;
+  if(co.ws.find(w=>w.n===n)){alert('同名が登録されています');return;}
+  co.ws.push({id:uid(),n});svS();renderCoTree();renderFilters();if(inp)inp.value='';
+}
+function delW(cid,wid){if(!confirm('削除しますか？'))return;const co=S.co.find(c=>c.id===cid);if(co)co.ws=co.ws.filter(w=>w.id!==wid);svS();renderCoTree();renderFilters();}
+function delCo(id){if(!confirm('会社ごと削除しますか？'))return;S.co=S.co.filter(c=>c.id!==id);svS();renderCoTree();renderFilters();}
+
+/* ===== カメラ共通 ===== */
+async function startCam(vid,onQR){
+  if(!navigator.mediaDevices){alert('カメラに対応していません');return null;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    vid.srcObject=stream;
+    const t=setInterval(()=>{
+      if(!vid.videoWidth)return;
+      const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
+      c.getContext('2d').drawImage(vid,0,0);
+      if(window.BarcodeDetector)new BarcodeDetector({formats:['qr_code']}).detect(c).then(rs=>{if(rs.length)onQR(rs[0].rawValue);}).catch(()=>{});
+    },300);
+    return{s:stream,t};
+  }catch(e){alert('カメラ起動失敗: '+e.message);return null;}
+}
+function stopCam(obj){if(!obj)return;obj.s?.getTracks().forEach(t=>t.stop());clearInterval(obj.t);}
+function parseQR(raw){
+  try{const d=JSON.parse(raw);return S.projs.find(p=>p.id===d.id)||null;}catch(e){return null;}
+}
+
+/* ===== 作業員カメラ ===== */
+async function wStartCam(){
+  const r=await startCam(g('w-vid'),raw=>{
+    wStopCam();const proj=parseQR(raw);
+    proj?wShowPanel(proj):(g('w-qmsg').textContent='⚠ 未登録の案件QRです');
+  });
+  if(!r)return;wS=r.s;wT=r.t;
+  g('w-vid-wrap').style.display='block';g('w-cam-btn').style.display='none';g('w-cam-stop').style.display='flex';
+  g('w-qmsg').textContent='QRコードをカメラに向けてください';
+}
+function wStopCam(){stopCam({s:wS,t:wT});wS=null;wT=null;g('w-vid-wrap').style.display='none';g('w-cam-btn').style.display='flex';g('w-cam-stop').style.display='none';g('w-qmsg').textContent='';}
+function wShowPanel(proj){
+  wSP=proj;g('w-pname').textContent=proj.n;g('w-psub').textContent=proj.addr||'';
+  g('w-sname').textContent=D.wn;g('w-sco').textContent=D.cn;
+  g('w-panel').style.display='block';g('w-qmsg').textContent='✅ QR読み取り成功';
+}
+function wCancel(){wSP=null;g('w-panel').style.display='none';g('w-qmsg').textContent='';}
+function wStamp(type){if(!wSP)return;doStamp(wSP,{id:D.wid,n:D.wn},{id:D.cid,n:D.cn},type,false,'');wCancel();}
+
+/* ===== 代理カメラ ===== */
+async function pStartCam(){
+  const r=await startCam(g('p-vid'),raw=>{
+    pStopCam();const proj=parseQR(raw);
+    proj?pShowPanel(proj):(g('p-qmsg').textContent='⚠ 未登録の案件QRです');
+  });
+  if(!r)return;pS=r.s;pT=r.t;
+  g('p-vid-wrap').style.display='block';g('p-cam-btn').style.display='none';g('p-cam-stop').style.display='flex';
+  g('p-qmsg').textContent='QRコードをカメラに向けてください';
+}
+function pStopCam(){stopCam({s:pS,t:pT});pS=null;pT=null;g('p-vid-wrap').style.display='none';g('p-cam-btn').style.display='flex';g('p-cam-stop').style.display='none';g('p-qmsg').textContent='';}
+function pShowPanel(proj){
+  pSP=proj;g('p-pname').textContent=proj.n;g('p-psub').textContent=proj.addr||'';
+  popCoSel(g('p-co'),'');pUpdW();
+  g('p-panel').style.display='block';g('p-qmsg').textContent='✅ QR読み取り成功';
+}
+function pUpdW(){popWSel(g('p-w'),g('p-co').value,'');}
+function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';}
+function pStamp(type){
+  if(!pSP)return;
+  const cid=g('p-co').value,wid=g('p-w').value;if(!wid){alert('作業員を選択してください');return;}
+  const co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);if(!w)return;
+  doStamp(pSP,w,co,type,true,'代理打刻');pCancel();
+}
+
+/* ===== 管理者カメラ ===== */
+async function mStartCam(){
+  const r=await startCam(g('m-vid'),raw=>{
+    mStopCam();const proj=parseQR(raw);
+    proj?mShowPanel(proj):(g('m-qmsg').textContent='⚠ 未登録の案件QRです');
+  });
+  if(!r)return;mS=r.s;mT=r.t;
+  g('m-vid-wrap').style.display='block';g('m-cam-btn').style.display='none';g('m-cam-stop').style.display='flex';
+  g('m-qmsg').textContent='QRコードをカメラに向けてください';
+}
+function mStopCam(){stopCam({s:mS,t:mT});mS=null;mT=null;g('m-vid-wrap').style.display='none';g('m-cam-btn').style.display='flex';g('m-cam-stop').style.display='none';g('m-qmsg').textContent='';}
+function mShowPanel(proj){
+  mSP=proj;g('m-pname').textContent=proj.n;
+  popCoSel(g('m-co'),'');mUpdW();
+  g('m-panel').style.display='block';g('m-qmsg').textContent='✅ QR読み取り成功';
+}
+function mUpdW(){popWSel(g('m-w'),g('m-co').value,'');}
+function mCancel(){mSP=null;g('m-panel').style.display='none';g('m-qmsg').textContent='';}
+function mStamp(type){
+  if(!mSP)return;
+  const cid=g('m-co').value,wid=g('m-w').value;if(!wid){alert('作業員を選択してください');return;}
+  const co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);if(!w)return;
+  doStamp(mSP,w,co,type,false,'');mCancel();
+}
+
+/* ===== 手動打刻 ===== */
+function openManual(forProxy){
+  manProxy=forProxy;
+  g('mm-p').innerHTML=S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('')||'<option>案件なし</option>';
+  popCoSel(g('mm-c'),'');mmUpdW();openM('manual-modal');
+}
+function mmUpdW(){popWSel(g('mm-w'),g('mm-c').value,'');}
+function submitManual(){
+  const pid=g('mm-p').value,cid=g('mm-c').value,wid=g('mm-w').value,type=g('mm-t').value;
+  const proj=S.projs.find(p=>p.id===pid),co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);
+  if(!proj||!w)return;closeM('manual-modal');
+  doStamp(proj,w,co,type,manProxy,manProxy?'代理打刻':'');
+}
+
+/* ===== Core stamp ===== */
+function doStamp(proj,worker,co,type,isProxy,note){
+  const now=new Date();
+  const rec={id:uid(),pid:proj.id,pn:proj.n,wid:worker.id,wn:worker.n,cid:co.id,cn:co.n,
+    type,date:now.toLocaleDateString('ja-JP'),time:now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
+    ts:now.toISOString(),proxy:isProxy,note:note||''};
+  S.recs.unshift(rec);svS();renderRecs();renderSum();
+  if(S.gas)sendGAS(rec);
+  showDone(rec,proj,isProxy);
+}
+function showDone(rec,proj,isProxy){
+  g('si').textContent=rec.type==='in'?'🟢':'🔴';
+  g('st').textContent=rec.type==='in'?'出勤打刻完了':'退勤打刻完了';
+  g('sd').innerHTML=`${rec.wn}${isProxy?' <span class="bdg bdg-proxy">代理</span>':''}<br><span style="font-size:12px">${rec.cn}</span><br>${proj.n}<br>${rec.date} ${rec.time}`;
+  const nk=calcNK(rec.pid,rec.wid,rec.date);
+  g('snk').innerHTML=nk?`本日の労働時間：<strong>${nk.h}h</strong>　人工：<strong>${nk.nk}人工</strong>`:'退勤打刻後に人工が確定します';
+  openM('stamp-modal');
+}
+function calcNK(pid,wid,date){
+  const day=S.recs.filter(r=>r.pid===pid&&r.wid===wid&&r.date===date);
+  const i=day.find(r=>r.type==='in'),o=day.find(r=>r.type==='out');if(!i||!o)return null;
+  const h=calcH(i.time,o.time);const std=S.stdH||8,half=S.halfH||4;
+  return{h:h.toFixed(1),nk:(h>=std?1.0:h>=half?0.5:0.25).toFixed(2)};
+}
+function calcH(t1,t2){const[h1,m1]=t1.split(':').map(Number),[h2,m2]=t2.split(':').map(Number);return Math.max(0,(h2*60+m2-h1*60-m1)/60);}
+async function sendGAS(rec){if(!S.gas)return;try{await fetch(S.gas,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:rec.pid,projectName:rec.pn,worker:rec.wn,company:rec.cn,type:rec.type,date:rec.date,time:rec.time,timestamp:rec.ts,proxy:rec.proxy,note:rec.note})});}catch(e){}}
+
+/* ===== 作業員履歴 ===== */
+function renderWHist(){
+  const el=g('w-hist');const rs=S.recs.filter(r=>r.wid===D.wid).slice(0,30);
+  if(!rs.length){el.innerHTML='<div class="empty">履歴がありません</div>';return;}
+  el.innerHTML=rs.map(r=>`<div class="row"><div><div style="font-size:13px;font-weight:600">${r.pn}</div><div style="font-size:11px;color:var(--text2)">${r.date} ${r.time}</div></div><span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span></div>`).join('');
+}
+
+/* ===== 案件 ===== */
+/* ===== スプレッドシートから案件を読み込む ===== */
+async function syncProjs(){
+  if(!S.gas){
+    g('sync-msg').textContent='⚠ GAS URLが設定されていません。設定タブで先に設定してください。';
+    return;
+  }
+  const btn=g('sync-btn');
+  btn.disabled=true;
+  g('sync-msg').textContent='読み込み中...';
+  try{
+    // URLを正しく組み立てる（/exec はそのまま残してパラメータを追加）
+    const base=S.gas.split('?')[0]; // ?以降を除去
+    const url=base+'?action=getProjects';
+    const res=await fetch(url, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+    const text=await res.text();
+    let data;
+    try{ data=JSON.parse(text); }
+    catch(e){ throw new Error('レスポンスが不正です：'+text.slice(0,100)); }
+
+    if(!Array.isArray(data)){
+      throw new Error(data.error||'案件データが取得できませんでした');
+    }
+    if(data.length===0){
+      g('sync-msg').textContent='⚠ スプレッドシートの案件マスタにデータがありません。';
+      btn.disabled=false;
+      return;
+    }
+    let added=0,updated=0;
+    data.forEach(function(p){
+      if(!p.id||!p.name)return;
+      const proj={
+        id:String(p.id),
+        n:String(p.name),
+        addr:String(p.place||''),
+        placeDetail1:String(p.placeDetail1||''),
+        placeDetail2:String(p.placeDetail2||''),
+        mgr:String(p.manager||''),
+        deadline:String(p.deadline||''),
+        status:String(p.status||''),
+        fromSheet:true
+      };
+      const idx=S.projs.findIndex(x=>x.id===proj.id);
+      if(idx>=0){S.projs[idx]={...S.projs[idx],...proj};updated++;}
+      else{S.projs.push(proj);added++;}
+    });
+    svS();renderProjs();renderFilters();
+    g('sync-msg').textContent='✅ 読み込み完了：'+added+'件追加・'+updated+'件更新';
+  }catch(e){
+    g('sync-msg').textContent='⚠ エラー：'+e.message;
+    console.error('syncProjs error:', e);
+  }
+  btn.disabled=false;
+}
+
+function addProj(){
+  const n=g('pn').value.trim();if(!n){alert('案件名を入力してください');return;}
+  const proj={
+    id:uid(),n,
+    addr:g('pa').value.trim(),
+    placeDetail1:g('pa2').value.trim(),
+    placeDetail2:g('pa3').value.trim(),
+    mgr:g('pm').value.trim(),
+    deadline:g('ps').value,
+    status:g('pe').value,
+    fromSheet:false
+  };
+  S.projs.push(proj);svS();renderProjs();renderFilters();
+  ['pn','pa','pa2','pa3','pm','ps'].forEach(id=>g(id).value='');
+  setTimeout(()=>showQR(proj),100);
+}
+function renderProjs(){
+  const el=g('proj-list');if(!S.projs.length){el.innerHTML='<div class="empty">案件がありません</div>';return;}
+  el.innerHTML=S.projs.map(p=>`<div class="row"><div style="flex:1;min-width:0">
+    <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.n}${p.fromSheet?'<span class="bdg bdg-co" style="font-size:10px;margin-left:6px">SS連携</span>':''}</div>
+    <div style="font-size:11px;color:var(--text2)">${[p.addr,p.placeDetail1,p.placeDetail2].filter(Boolean).join(' / ')||'工事場所未設定'}</div>
+    <div style="font-size:11px;color:var(--text2)">${p.mgr?'担当:'+p.mgr+'　':''}${p.deadline?'納期:'+p.deadline+'　':''}${p.status?p.status:''}</div>
+  </div><div style="display:flex;gap:6px;flex-shrink:0">
+    <button class="btn btn-blue btn-sm" onclick="showQR(S.projs.find(x=>x.id==='${p.id}'))">QR</button>
+    <button class="btn btn-red btn-sm" onclick="delProj('${p.id}')"><i class="ti ti-trash"></i></button>
+  </div></div>`).join('');
+}
+function delProj(id){if(confirm('削除しますか？')){S.projs=S.projs.filter(p=>p.id!==id);svS();renderProjs();}}
+function showQR(proj){
+  if(!proj)return;curQR=proj;
+  g('qr-title').textContent=proj.n;g('qr-sub').textContent=proj.addr||'';openM('qr-modal');
+  const cvs=g('qr-cvs'),ctx=cvs.getContext('2d');ctx.clearRect(0,0,200,200);
+  // QRにはIDのみ入れる（データ量を最小化）
+  const data=JSON.stringify({id:proj.id});
+  const capacity=[0,16,28,44,64,86,108,124,154,182,216,254,290,334,365,415,453,507,563,627,669,714,782,860,914,1000,1062,1128,1193,1267,1373,1455,1541,1631,1725,1812,1914,1992,2102,2216,2334];
+  let typeNum=2;
+  for(let t=1;t<=40;t++){if(data.length<=capacity[t]){typeNum=t;break;}}
+  try{
+    const qr=qrcode(typeNum,'M');
+    qr.addData(data);qr.make();
+    const m=qr.getModuleCount(),sz=Math.floor(200/m),off=Math.floor((200-m*sz)/2);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#000';
+    for(let r=0;r<m;r++)for(let c=0;c<m;c++)if(qr.isDark(r,c))ctx.fillRect(off+c*sz,off+r*sz,sz,sz);
+  }catch(e){
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#333';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('QR生成エラー',100,90);ctx.fillText(e.message||'',100,110);
+    console.error('QR error:',e,data);
+  }
+}
+function dlQR(){const a=document.createElement('a');a.download=(curQR?.n||'qr')+'.png';a.href=g('qr-cvs').toDataURL();a.click();}
+
+/* ===== 履歴 ===== */
+function renderRecs(){
+  const fp=g('rf-p')?.value||'',fc=g('rf-c')?.value||'';
+  const rs=S.recs.filter(r=>(!fp||r.pid===fp)&&(!fc||r.cid===fc));
+  const el=g('rec-list');if(!rs.length){el.innerHTML='<div class="empty">データなし</div>';return;}
+  el.innerHTML=rs.slice(0,80).map(r=>`<div class="row"><div style="flex:1"><div style="font-size:13px;font-weight:600">${r.wn}${r.proxy?'<span class="bdg bdg-proxy" style="margin-left:4px;font-size:10px">代理</span>':''}</div><div><span class="bdg bdg-co" style="font-size:10px">${r.cn}</span></div><div style="font-size:11px;color:var(--text2)">${r.pn} / ${r.date} ${r.time}</div></div><span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span></div>`).join('');
+}
+function renderFilters(){
+  const rp=g('rf-p'),rc=g('rf-c');if(!rp||!rc)return;
+  const v1=rp.value,v2=rc.value;
+  rp.innerHTML='<option value="">すべての案件</option>'+S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('');
+  rc.innerHTML='<option value="">すべての会社</option>'+S.co.map(c=>`<option value="${c.id}">${c.n}</option>`).join('');
+  rp.value=v1;rc.value=v2;
+}
+
+/* ===== 集計 ===== */
+let sTb='proj';
+function sSTab(t,btn){sTb=t;g('mp-sum').querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');['proj','work','comp','det'].forEach(x=>g('s-'+x).style.display=x===t?'block':'none');renderSum();}
+function mkPairs(){
+  const p={};
+  S.recs.forEach(r=>{const k=r.pid+'_'+r.wid+'_'+r.date;if(!p[k])p[k]={pn:r.pn,pid:r.pid,wn:r.wn,wid:r.wid,cn:r.cn,cid:r.cid,date:r.date,in:null,out:null,proxy:false};if(r.type==='in'&&!p[k].in)p[k].in=r.time;if(r.type==='out')p[k].out=r.time;if(r.proxy)p[k].proxy=true;});
+  return Object.values(p);
+}
+function renderSum(){
+  const pairs=mkPairs();const std=S.stdH||8,half=S.halfH||4;
+  let tNk=0,tH=0;const ws=new Set(),ps=new Set();
+  pairs.forEach(p=>{if(p.in&&p.out){const h=calcH(p.in,p.out),nk=h>=std?1:h>=half?.5:.25;p.h=h;p.nk=nk;tNk+=nk;tH+=h;ws.add(p.wid);ps.add(p.pid);}else{p.h=null;p.nk=null;}});
+  g('st-nk').textContent=tNk.toFixed(1);g('st-h').textContent=tH.toFixed(1)+'h';g('st-w').textContent=ws.size;g('st-p').textContent=ps.size;
+  const bP={};pairs.filter(p=>p.nk!=null).forEach(p=>{if(!bP[p.pid])bP[p.pid]={n:p.pn,nk:0,h:0,ws:new Set()};bP[p.pid].nk+=p.nk;bP[p.pid].h+=p.h;bP[p.pid].ws.add(p.wid);});
+  const pe=Object.values(bP),mx=Math.max(...pe.map(x=>x.nk),1);
+  g('s-proj').innerHTML=pe.length?'<div class="ctitle">案件別</div>'+pe.map(p=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="font-weight:600">${p.n}</span><span>${p.nk.toFixed(1)}人工 / ${p.h.toFixed(1)}h</span></div><div class="prog-bar"><div class="prog-fill" style="width:${Math.round(p.nk/mx*100)}%;background:var(--blue)"></div></div><div style="font-size:11px;color:var(--text3)">${p.ws.size}名</div></div>`).join(''):'<div class="empty">データなし</div>';
+  const bW={};pairs.filter(p=>p.nk!=null).forEach(p=>{if(!bW[p.wid])bW[p.wid]={n:p.wn,co:p.cn,nk:0,h:0,days:0};bW[p.wid].nk+=p.nk;bW[p.wid].h+=p.h;bW[p.wid].days++;});
+  const we=Object.entries(bW).sort((a,b)=>b[1].nk-a[1].nk);
+  g('s-work').innerHTML=we.length?'<div class="ctitle">作業員別</div>'+we.map(([,d])=>`<div class="row"><div><div style="font-size:13px;font-weight:600">${d.n}</div><div><span class="bdg bdg-co" style="font-size:10px">${d.co}</span></div><div style="font-size:11px;color:var(--text2)">${d.days}日 / ${d.h.toFixed(1)}h</div></div><span style="font-weight:700">${d.nk.toFixed(1)}人工</span></div>`).join(''):'<div class="empty">データなし</div>';
+  const bC={};pairs.filter(p=>p.nk!=null).forEach(p=>{if(!bC[p.cid])bC[p.cid]={n:p.cn,nk:0,h:0,ws:new Set()};bC[p.cid].nk+=p.nk;bC[p.cid].h+=p.h;bC[p.cid].ws.add(p.wid);});
+  const ce=Object.values(bC).sort((a,b)=>b.nk-a.nk),mc=Math.max(...ce.map(x=>x.nk),1);
+  g('s-comp').innerHTML=ce.length?'<div class="ctitle">会社別</div>'+ce.map(c=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="font-weight:600">${c.n}</span><span>${c.nk.toFixed(1)}人工 / ${c.h.toFixed(1)}h</span></div><div class="prog-bar"><div class="prog-fill" style="width:${Math.round(c.nk/mc*100)}%;background:#185FA5"></div></div><div style="font-size:11px;color:var(--text3)">${c.ws.size}名</div></div>`).join(''):'<div class="empty">データなし</div>';
+  const sd=pairs.sort((a,b)=>b.date.localeCompare(a.date));
+  g('s-det').innerHTML=sd.length?'<div class="ctitle">明細</div>'+sd.slice(0,50).map(p=>`<div class="row"><div><div style="font-size:13px;font-weight:600">${p.wn}${p.proxy?'<span class="bdg bdg-proxy" style="margin-left:4px;font-size:10px">代理</span>':''}</div><div><span class="bdg bdg-co" style="font-size:10px">${p.cn}</span></div><div style="font-size:11px;color:var(--text2)">${p.pn} / ${p.date} / ${p.in||'--:--'}〜${p.out||'--:--'}</div></div><div style="text-align:right">${p.nk!=null?`<span class="bdg bdg-ok">${p.nk.toFixed(2)}人工</span><div style="font-size:11px;color:var(--text2);margin-top:2px">${p.h.toFixed(1)}h</div>`:'<span class="bdg bdg-warn">未完了</span>'}</div></div>`).join(''):'<div class="empty">データなし</div>';
+}
+
+/* ===== 管理（打刻追加・編集） ===== */
+function refEdit(){
+  g('ae-p').innerHTML=S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('')||'<option>案件なし</option>';
+  popCoSel(g('ae-c'),'');aeUpdW();
+  const today=new Date().toISOString().split('T')[0];g('ae-d').value=today;g('ae-t').value='08:00';
+  renderAdmFilts();renderEditRecs();
+}
+function aeUpdW(){popWSel(g('ae-w'),g('ae-c').value,'');}
+function adminAdd(){
+  const pid=g('ae-p').value,cid=g('ae-c').value,wid=g('ae-w').value,date=g('ae-d').value,time=g('ae-t').value,type=g('ae-type').value,note=g('ae-note').value.trim();
+  if(!pid||!cid||!wid||!date||!time){alert('すべての項目を入力してください');return;}
+  const proj=S.projs.find(p=>p.id===pid),co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);if(!proj||!co||!w)return;
+  const d=new Date(date+'T'+time);
+  const rec={id:uid(),pid,pn:proj.n,wid:w.id,wn:w.n,cid:co.id,cn:co.n,type,date:d.toLocaleDateString('ja-JP'),time:d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),ts:d.toISOString(),proxy:true,note:note||'管理者追加'};
+  S.recs.unshift(rec);svS();renderRecs();renderEditRecs();renderSum();if(S.gas)sendGAS(rec);
+  g('ae-note').value='';alert(`✅ 追加しました\n${w.n}（${co.n}）/ ${proj.n}\n${rec.date} ${rec.time} ${type==='in'?'出勤':'退勤'}`);
+}
+function renderAdmFilts(){
+  const ap=g('ef-p'),ac=g('ef-c');if(!ap||!ac)return;
+  const v1=ap.value,v2=ac.value;
+  ap.innerHTML='<option value="">すべての案件</option>'+S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('');
+  ac.innerHTML='<option value="">すべての会社</option>'+S.co.map(c=>`<option value="${c.id}">${c.n}</option>`).join('');
+  ap.value=v1;ac.value=v2;
+}
+function renderEditRecs(){
+  const fp=g('ef-p')?.value||'',fc=g('ef-c')?.value||'';
+  const rs=S.recs.filter(r=>(!fp||r.pid===fp)&&(!fc||r.cid===fc));
+  const el=g('edit-rec-list');if(!rs.length){el.innerHTML='<div class="empty">データなし</div>';return;}
+  el.innerHTML=rs.slice(0,100).map(r=>`<div class="row"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${r.wn}${r.proxy?'<span class="bdg bdg-proxy" style="margin-left:4px;font-size:10px">代理</span>':''}</div><div style="font-size:11px;color:var(--text2)">${r.cn} / ${r.pn}</div><div style="font-size:11px;color:var(--text2)">${r.date} ${r.time}${r.note?' / '+r.note:''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0"><span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span><button class="btn btn-sm" onclick="openEdit('${r.id}')" style="margin-top:2px"><i class="ti ti-edit"></i>編集</button></div></div>`).join('');
+}
+function openEdit(id){
+  const rec=S.recs.find(r=>r.id===id);if(!rec)return;
+  g('edit-id').value=id;
+  g('ed-p').innerHTML=S.projs.map(p=>`<option value="${p.id}"${p.id===rec.pid?' selected':''}>${p.n}</option>`).join('');
+  popCoSel(g('ed-c'),rec.cid);
+  const co=S.co.find(c=>c.id===rec.cid);g('ed-w').innerHTML=(co?.ws||[]).map(w=>`<option value="${w.id}"${w.id===rec.wid?' selected':''}>${w.n}</option>`).join('');
+  try{const dt=new Date(rec.ts);g('ed-d').value=dt.toISOString().split('T')[0];g('ed-t').value=dt.toTimeString().slice(0,5);}catch(e){}
+  g('ed-type').value=rec.type;g('ed-note').value=rec.note||'';openM('edit-modal');
+}
+function edUpdW(){popWSel(g('ed-w'),g('ed-c').value,'');}
+function saveEdit(){
+  const id=g('edit-id').value;const idx=S.recs.findIndex(r=>r.id===id);if(idx<0)return;
+  const pid=g('ed-p').value,cid=g('ed-c').value,wid=g('ed-w').value,date=g('ed-d').value,time=g('ed-t').value;
+  const proj=S.projs.find(p=>p.id===pid),co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);
+  const d=new Date(date+'T'+time);
+  S.recs[idx]={...S.recs[idx],pid,pn:proj?.n||S.recs[idx].pn,cid,cn:co?.n||S.recs[idx].cn,wid,wn:w?.n||S.recs[idx].wn,type:g('ed-type').value,date:d.toLocaleDateString('ja-JP'),time:d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),ts:d.toISOString(),note:g('ed-note').value.trim(),proxy:true};
+  svS();closeM('edit-modal');renderRecs();renderEditRecs();renderSum();alert('✅ 更新しました');
+}
+function delEdit(){if(!confirm('削除しますか？'))return;const id=g('edit-id').value;S.recs=S.recs.filter(r=>r.id!==id);svS();closeM('edit-modal');renderRecs();renderEditRecs();renderSum();}
+
+/* ===== 設定 ===== */
+function saveCalc(){S.stdH=parseFloat(g('std-h').value)||8;S.halfH=parseFloat(g('half-h').value)||4;svS();alert('保存しました');}
+function saveGas(){S.gas=g('gas-url').value.trim();svS();g('gas-st').textContent=S.gas?'✅ 保存しました':'URLが空です';}
+function exportCSV(){
+  const pairs=mkPairs();const std=S.stdH||8,half=S.halfH||4;
+  const rows=[['日付','案件名','会社名','作業員','出勤','退勤','労働時間(h)','人工','代理打刻']];
+  pairs.sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{
+    let h='',nk='';if(p.in&&p.out){const hh=calcH(p.in,p.out);h=hh.toFixed(2);nk=(hh>=std?1:hh>=half?.5:.25).toFixed(2);}
+    rows.push([p.date,p.pn,p.cn,p.wn,p.in||'',p.out||'',h,nk,p.proxy?'○':'']);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+csv);
+  a.download='人工集計_'+new Date().toLocaleDateString('ja-JP').replace(/\//g,'')+'.csv';a.click();
+}
+function clearAll(){
+  if(confirm('全データを削除しますか？（端末登録も消えます）')){
+    S={co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP};
+    D={ok:false,cid:'',cn:'',wid:'',wn:'',dob:''};svS();svD();mgrLogout();
+  }
+}
+
+/* ===== モーダル ===== */
+function openM(id){g(id).classList.add('on');}
+function closeM(id){g(id).classList.remove('on');}
+
+init();
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(r=>console.log('SW registered'))
+      .catch(e=>console.log('SW error',e));
+  });
+}
+</script>
+</body>
+</html>
