@@ -2,51 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<script>
-// Google Drive preview のiframe内で動作している場合、全画面で開くよう誘導
-(function(){
-  if(window.self !== window.top){
-    document.addEventListener('DOMContentLoaded', function(){
-      var overlay = document.createElement('div');
-      overlay.style.cssText = [
-        'position:fixed','top:0','left:0','right:0','bottom:0',
-        'background:#3C3489','color:#fff','display:flex',
-        'flex-direction:column','align-items:center','justify-content:center',
-        'z-index:99999','padding:24px','text-align:center','gap:16px'
-      ].join(';');
-      overlay.innerHTML = [
-        '<div style="font-size:48px">🏗️</div>',
-        '<div style="font-size:20px;font-weight:700">人工管理システム</div>',
-        '<div style="font-size:14px;opacity:.85;line-height:1.7">',
-        'このページはiframe内では<br>正常に動作しません。<br>',
-        '下のボタンをタップして<br>アプリを開いてください。',
-        '</div>',
-        '<a id="open-link" href="' + window.location.href + '" target="_blank" ',
-        'style="background:#fff;color:#3C3489;padding:14px 28px;border-radius:99px;',
-        'font-size:16px;font-weight:700;text-decoration:none;margin-top:8px">',
-        '🔗 アプリを開く</a>',
-        '<div style="font-size:12px;opacity:.7;margin-top:4px">',
-        '開いたページをホーム画面に追加してください</div>'
-      ].join('');
-      document.body.appendChild(overlay);
-      // try to update the link with actual current URL
-      try{
-        document.getElementById('open-link').href = window.location.href;
-      }catch(e){}
-    });
-  }
-})();
-</script>
-
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#3C3489">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="人工管理">
-<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>人工管理システム</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/tabler-icons.min.css">
 <script>
 // Minimal QR Code generator (embedded)
@@ -680,14 +643,22 @@ async function fsStartCam(){
     g('fs-vid-wrap').style.display='block';
     g('fs-cam-btn').style.display='none';g('fs-cam-stop').style.display='flex';
     g('fs-qmsg').textContent='QRコードをカメラに向けてください';
+    const fsCanvas=document.createElement('canvas');
+    const fsCtx=fsCanvas.getContext('2d');
     fsT=setInterval(()=>{
       const vid=g('fs-vid');if(!vid.videoWidth)return;
-      const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
-      c.getContext('2d').drawImage(vid,0,0);
-      if(window.BarcodeDetector)new BarcodeDetector({formats:['qr_code']}).detect(c).then(rs=>{
+      fsCanvas.width=vid.videoWidth;fsCanvas.height=vid.videoHeight;
+      fsCtx.drawImage(vid,0,0);
+      const imageData=fsCtx.getImageData(0,0,fsCanvas.width,fsCanvas.height);
+      if(window.jsQR){
+        const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
+        if(code&&code.data)fsOnQR(code.data);
+        return;
+      }
+      if(window.BarcodeDetector)new BarcodeDetector({formats:['qr_code']}).detect(fsCanvas).then(rs=>{
         if(rs.length)fsOnQR(rs[0].rawValue);
       }).catch(()=>{});
-    },300);
+    },200);
   }catch(e){alert('カメラ起動失敗: '+e.message);}
 }
 function fsStopCam(){
@@ -940,14 +911,28 @@ function delCo(id){if(!confirm('会社ごと削除しますか？'))return;S.co=
 async function startCam(vid,onQR){
   if(!navigator.mediaDevices){alert('カメラに対応していません');return null;}
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
     vid.srcObject=stream;
+    const canvas=document.createElement('canvas');
+    const ctx=canvas.getContext('2d');
     const t=setInterval(()=>{
       if(!vid.videoWidth)return;
-      const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
-      c.getContext('2d').drawImage(vid,0,0);
-      if(window.BarcodeDetector)new BarcodeDetector({formats:['qr_code']}).detect(c).then(rs=>{if(rs.length)onQR(rs[0].rawValue);}).catch(()=>{});
-    },300);
+      canvas.width=vid.videoWidth;canvas.height=vid.videoHeight;
+      ctx.drawImage(vid,0,0);
+      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      if(window.jsQR){
+        const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});
+        if(code&&code.data)onQR(code.data);
+        return;
+      }
+      if(window.BarcodeDetector){
+        new BarcodeDetector({formats:['qr_code']}).detect(canvas)
+          .then(rs=>{if(rs.length)onQR(rs[0].rawValue);}).catch(()=>{});
+      }
+    },200);
     return{s:stream,t};
   }catch(e){alert('カメラ起動失敗: '+e.message);return null;}
 }
@@ -1303,14 +1288,5 @@ function closeM(id){g(id).classList.remove('on');}
 init();
 </script>
 
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js')
-      .then(r=>console.log('SW registered'))
-      .catch(e=>console.log('SW error',e));
-  });
-}
-</script>
 </body>
 </html>
