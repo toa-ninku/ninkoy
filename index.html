@@ -556,7 +556,7 @@ lbl:first-of-type{margin-top:0}
       初めてのご利用です。情報を登録してください。
     </div>
     <lbl>会社名</lbl>
-    <input type="text" id="reg-co-txt" placeholder="会社名を入力してください" style="margin-bottom:0">
+    <select id="reg-co-sel" style="margin-bottom:0"></select>
     <lbl style="margin-top:10px">お名前</lbl>
     <input type="text" id="reg-w-txt" placeholder="氏名を入力してください" style="margin-bottom:0">
     <lbl style="margin-top:10px">生年月日（本人確認用）</lbl>
@@ -618,7 +618,7 @@ lbl:first-of-type{margin-top:0}
   <div class="modal">
     <div class="mtitle"><i class="ti ti-pencil" aria-hidden="true"></i>端末の登録変更</div>
     <div class="ibox">この端末を使う作業員を変更します。</div>
-    <lbl>会社名</lbl><input type="text" id="cd-co-txt" placeholder="会社名を入力" style="margin-bottom:0">
+    <lbl>会社名</lbl><select id="cd-co-sel" style="margin-bottom:0"></select>
     <lbl style="margin-top:10px">お名前</lbl><input type="text" id="cd-w-txt" placeholder="氏名を入力" style="margin-bottom:0">
     <button class="btn btn-green" onclick="saveChDev()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更して保存</button>
     <button class="btn btn-ghost" onclick="closeM('chdev-modal')">キャンセル</button>
@@ -711,17 +711,23 @@ function init(){
 /* ===== 画面切替 ===== */
 function hideAll(){['first-setup','worker-mode','proxy-mode','mgr-mode'].forEach(id=>g(id).style.display='none');}
 function closeApp(){
-  // カメラを停止してからアプリを閉じる
   try{fsStopCam();}catch(e){}
   try{wStopCam();}catch(e){}
   try{pStopCam();}catch(e){}
   try{mStopCam();}catch(e){}
-  // ウィンドウを閉じる（ホーム画面から開いた場合）
-  window.close();
-  // window.closeが効かない場合は空白ページへ
-  setTimeout(()=>{
-    window.location.href='about:blank';
-  },300);
+  // ブラウザを閉じる試み（ホーム画面から開いた場合は効かないことが多い）
+  var closed = window.close();
+  // 閉じられなかった場合はメッセージを表示
+  setTimeout(function(){
+    // まだページが存在していれば閉じられていない
+    hideAll();
+    var el = document.getElementById('first-setup');
+    if(el){
+      el.style.display = 'flex';
+      var msg = document.getElementById('fs-qmsg');
+      if(msg) msg.textContent = 'ホーム画面に戻ってアプリを終了してください。';
+    }
+  }, 300);
 }
 function showFirst(){
   hideAll();g('first-setup').style.display='flex';
@@ -840,24 +846,28 @@ async function wStartCam(){
 function openRegModal(proj){
   g('reg-proj-name').textContent=proj.n;
   g('reg-err').style.display='none';
-  g('reg-co-txt').value='';
+  // 会社名プルダウンを構築
+  const sel=g('reg-co-sel');
+  if(S.co.length){
+    sel.innerHTML=S.co.map(c=>`<option value="${c.n}">${c.n}</option>`).join('');
+  }else{
+    sel.innerHTML='<option value="">（会社未登録）</option>';
+  }
   g('reg-w-txt').value='';
   const y=new Date().getFullYear()-25;
   g('reg-dob').value=`${y}-01-01`;
   openM('reg-modal');
-  // 少し遅らせてフォーカス
-  setTimeout(()=>g('reg-co-txt').focus(), 300);
+  setTimeout(()=>g('reg-w-txt').focus(),300);
 }
-function regUpdW(){} // 互換性のため残す
+function regUpdW(){}
 function completeReg(){
-  const cn=g('reg-co-txt').value.trim();
+  const cn=g('reg-co-sel').value.trim();
   const wn=g('reg-w-txt').value.trim();
   const dob=g('reg-dob').value;
   const err=g('reg-err');
-  if(!cn){err.textContent='会社名を入力してください';err.style.display='block';return;}
+  if(!cn){err.textContent='会社名を選択してください';err.style.display='block';return;}
   if(!wn){err.textContent='お名前を入力してください';err.style.display='block';return;}
   if(!dob){err.textContent='生年月日を入力してください';err.style.display='block';return;}
-  // IDを生成して保存
   const cid=uid(),wid=uid();
   D={ok:true,cid,cn,wid,wn,dob};
   svD();closeM('reg-modal');
@@ -868,14 +878,19 @@ function cancelReg(){closeM('reg-modal');fsPendingProj=null;g('fs-qmsg').textCon
 
 /* ===== 端末変更 ===== */
 function openChangeDev(){
-  g('cd-co-txt').value=D.cn||'';
+  const sel=g('cd-co-sel');
+  if(S.co.length){
+    sel.innerHTML=S.co.map(c=>`<option value="${c.n}"${c.n===D.cn?' selected':''}>${c.n}</option>`).join('');
+  }else{
+    sel.innerHTML='<option value="">（会社未登録）</option>';
+  }
   g('cd-w-txt').value=D.wn||'';
   openM('chdev-modal');
-  setTimeout(()=>g('cd-co-txt').focus(), 300);
+  setTimeout(()=>g('cd-w-txt').focus(),300);
 }
-function cdUpdW(){} // 互換性のため残す
+function cdUpdW(){}
 function saveChDev(){
-  const cn=g('cd-co-txt').value.trim();
+  const cn=g('cd-co-sel').value.trim();
   const wn=g('cd-w-txt').value.trim();
   if(!cn||!wn){alert('会社名とお名前を入力してください');return;}
   D={ok:true,cid:D.cid||uid(),cn,wid:D.wid||uid(),wn};svD();
@@ -1361,6 +1376,30 @@ async function syncProjs(){
   btn.disabled=false;
 }
 
+// GASへのGETリクエスト（CORS対策）
+async function gasGet(params){
+  if(!S.gas)return null;
+  try{
+    const base=S.gas.split('?')[0];
+    const qs=Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    const res=await fetch(base+'?'+qs,{method:'GET',redirect:'follow'});
+    return await res.json();
+  }catch(e){console.error('gasGet error:',e);return null;}
+}
+
+// GASへのPOSTリクエスト（no-corsで送信）
+async function gasPost(data){
+  if(!S.gas)return;
+  try{
+    await fetch(S.gas,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+  }catch(e){console.error('gasPost error:',e);}
+}
+
 // 連番IDを自動生成する（例：P001、P002、P003...）
 function genNextProjId(){
   const nums = S.projs
@@ -1370,7 +1409,7 @@ function genNextProjId(){
     })
     .filter(n => n > 0);
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-  return 'P' + String(next).padStart(3, '0'); // P001, P002...
+  return 'P' + String(next).padStart(3, '0');
 }
 
 async function addProj(){
@@ -1388,25 +1427,17 @@ async function addProj(){
   };
   S.projs.push(proj);svS();renderProjs();renderFilters();
   ['pn','pa','pa2','pa3','pm','ps'].forEach(id=>g(id).value='');
-  // GASのスプレッドシートにも追記
-  if(S.gas){
-    try{
-      await fetch(S.gas,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          action:'addProject',
-          id:proj.id, name:proj.n,
-          place:proj.addr,
-          placeDetail1:proj.placeDetail1,
-          placeDetail2:proj.placeDetail2,
-          manager:proj.mgr,
-          deadline:proj.deadline,
-          status:proj.status
-        })
-      });
-    }catch(e){}
-  }
+  // GASにGETリクエストで案件追加
+  await gasGet({
+    action:'addProject',
+    id:proj.id, name:proj.n,
+    place:proj.addr||'',
+    placeDetail1:proj.placeDetail1||'',
+    placeDetail2:proj.placeDetail2||'',
+    manager:proj.mgr||'',
+    deadline:proj.deadline||'',
+    status:proj.status||''
+  });
   setTimeout(()=>showQR(proj),100);
 }
 function renderProjs(){
@@ -1423,15 +1454,7 @@ function renderProjs(){
 async function delProj(id){
   if(!confirm('削除しますか？'))return;
   S.projs=S.projs.filter(p=>p.id!==id);svS();renderProjs();
-  if(S.gas){
-    try{
-      await fetch(S.gas,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'deleteProject',id})
-      });
-    }catch(e){}
-  }
+  await gasGet({action:'deleteProject',id});
 }
 
 /* ===== 全ブラウザ同期ポーリング（30秒ごと） ===== */
