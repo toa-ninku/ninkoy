@@ -774,14 +774,15 @@ async function fsOnQR(raw){
   try{
     const d=JSON.parse(raw);
     let proj=S.projs.find(p=>p.id===d.id);
-    // ローカルに案件がない場合はGASから取得を試みる
     if(!proj && S.gas){
       g('fs-qmsg').textContent='案件情報を取得中...';
-      proj = await fetchProjById(d.id);
+      proj=await fetchProjById(d.id);
     }
     if(!proj){g('fs-qmsg').textContent='⚠ 未登録の案件QRです。管理者に確認してください。';return;}
     fsPendingProj=proj;
-    openRegModal(proj);
+    // QRに含まれる会社リストを取り出す
+    const qrCompanies = (d.cos && Array.isArray(d.cos)) ? d.cos : [];
+    openRegModal(proj, qrCompanies);
   }catch(e){g('fs-qmsg').textContent='⚠ 対応していないQRコードです';}
 }
 
@@ -843,28 +844,30 @@ async function wStartCam(){
   g('w-vid-wrap').style.display='block';g('w-cam-btn').style.display='none';g('w-cam-stop').style.display='flex';
   g('w-qmsg').textContent='QRコードをカメラに向けてください';
 }
-async function openRegModal(proj){
+// QRから読み取った会社リストを一時保存
+let _qrCompanies = [];
+
+async function openRegModal(proj, qrCompanies){
   g('reg-proj-name').textContent=proj.n;
   g('reg-err').style.display='none';
   g('reg-w-txt').value='';
   const y=new Date().getFullYear()-25;
   g('reg-dob').value=`${y}-01-01`;
 
-  // 会社リストを構築（ローカル → なければGASから取得）
   const sel=g('reg-co-sel');
   sel.innerHTML='<option value="">読み込み中...</option>';
   openM('reg-modal');
 
-  let companies = S.co.map(c=>c.n).filter(Boolean);
+  // 優先順位：QRに含まれる会社 → ローカル → GASから取得
+  let companies = (qrCompanies && qrCompanies.length) ? qrCompanies
+    : S.co.map(c=>c.n).filter(Boolean);
 
-  // ローカルに会社がない場合はGASから取得
   if(!companies.length && S.gas){
     try{
       const base=S.gas.split('?')[0];
       const res=await fetch(base+'?action=getWorkers',{method:'GET',redirect:'follow'});
       const workers=await res.json();
       if(Array.isArray(workers)){
-        // 会社名をユニークに抽出
         const coSet=new Set(workers.map(w=>w.company).filter(Boolean));
         companies=[...coSet];
       }
@@ -1519,8 +1522,9 @@ function showQR(proj){
   if(!proj)return;curQR=proj;
   g('qr-title').textContent=proj.n;g('qr-sub').textContent=proj.addr||'';openM('qr-modal');
   const cvs=g('qr-cvs'),ctx=cvs.getContext('2d');ctx.clearRect(0,0,200,200);
-  // QRにはIDのみ入れる（データ量を最小化）
-  const data=JSON.stringify({id:proj.id});
+  // QRに案件IDと会社リストを埋め込む
+  const cos=S.co.map(c=>c.n).filter(Boolean);
+  const data=JSON.stringify({id:proj.id,cos:cos});
   const capacity=[0,16,28,44,64,86,108,124,154,182,216,254,290,334,365,415,453,507,563,627,669,714,782,860,914,1000,1062,1128,1193,1267,1373,1455,1541,1631,1725,1812,1914,1992,2102,2216,2334];
   let typeNum=2;
   for(let t=1;t<=40;t++){if(data.length<=capacity[t]){typeNum=t;break;}}
@@ -1534,8 +1538,19 @@ function showQR(proj){
   }catch(e){
     ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
     ctx.fillStyle='#333';ctx.font='12px sans-serif';ctx.textAlign='center';
-    ctx.fillText('QR生成エラー',100,90);ctx.fillText(e.message||'',100,110);
-    console.error('QR error:',e,data);
+    // データが多すぎる場合はIDのみで再試行
+    try{
+      const data2=JSON.stringify({id:proj.id});
+      let t2=2;
+      for(let t=1;t<=40;t++){if(data2.length<=capacity[t]){t2=t;break;}}
+      const qr2=qrcode(t2,'M');qr2.addData(data2);qr2.make();
+      const m2=qr2.getModuleCount(),sz2=Math.floor(200/m2),off2=Math.floor((200-m2*sz2)/2);
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
+      ctx.fillStyle='#000';
+      for(let r=0;r<m2;r++)for(let c=0;c<m2;c++)if(qr2.isDark(r,c))ctx.fillRect(off2+c*sz2,off2+r*sz2,sz2,sz2);
+    }catch(e2){
+      ctx.fillText('QR生成エラー',100,90);
+    }
   }
 }
 function dlQR(){const a=document.createElement('a');a.download=(curQR?.n||'qr')+'.png';a.href=g('qr-cvs').toDataURL();a.click();}
