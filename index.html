@@ -208,9 +208,9 @@ lbl:first-of-type{margin-top:0}
         <div class="rc-name">管理者として利用</div>
         <div class="rc-desc">案件・作業員の管理、打刻の確認・修正</div>
       </div>
-      <button class="btn btn-ghost" onclick="closeApp()" style="width:100%;color:var(--text3);font-size:13px">
-        <i class="ti ti-x" aria-hidden="true"></i>アプリを閉じる
-      </button>
+      <div style="text-align:center;font-size:12px;color:var(--text3);padding:8px 0">
+        終了するにはホーム画面に戻ってください
+      </div>
     </div>
   </div>
 </div>
@@ -843,20 +843,39 @@ async function wStartCam(){
   g('w-vid-wrap').style.display='block';g('w-cam-btn').style.display='none';g('w-cam-stop').style.display='flex';
   g('w-qmsg').textContent='QRコードをカメラに向けてください';
 }
-function openRegModal(proj){
+async function openRegModal(proj){
   g('reg-proj-name').textContent=proj.n;
   g('reg-err').style.display='none';
-  // 会社名プルダウンを構築
-  const sel=g('reg-co-sel');
-  if(S.co.length){
-    sel.innerHTML=S.co.map(c=>`<option value="${c.n}">${c.n}</option>`).join('');
-  }else{
-    sel.innerHTML='<option value="">（会社未登録）</option>';
-  }
   g('reg-w-txt').value='';
   const y=new Date().getFullYear()-25;
   g('reg-dob').value=`${y}-01-01`;
+
+  // 会社リストを構築（ローカル → なければGASから取得）
+  const sel=g('reg-co-sel');
+  sel.innerHTML='<option value="">読み込み中...</option>';
   openM('reg-modal');
+
+  let companies = S.co.map(c=>c.n).filter(Boolean);
+
+  // ローカルに会社がない場合はGASから取得
+  if(!companies.length && S.gas){
+    try{
+      const base=S.gas.split('?')[0];
+      const res=await fetch(base+'?action=getWorkers',{method:'GET',redirect:'follow'});
+      const workers=await res.json();
+      if(Array.isArray(workers)){
+        // 会社名をユニークに抽出
+        const coSet=new Set(workers.map(w=>w.company).filter(Boolean));
+        companies=[...coSet];
+      }
+    }catch(e){}
+  }
+
+  if(companies.length){
+    sel.innerHTML=companies.map(n=>`<option value="${n}">${n}</option>`).join('');
+  }else{
+    sel.innerHTML='<option value="">（会社未登録）管理者に連絡してください</option>';
+  }
   setTimeout(()=>g('reg-w-txt').focus(),300);
 }
 function regUpdW(){}
@@ -877,15 +896,30 @@ function completeReg(){
 function cancelReg(){closeM('reg-modal');fsPendingProj=null;g('fs-qmsg').textContent='';}
 
 /* ===== 端末変更 ===== */
-function openChangeDev(){
+async function openChangeDev(){
   const sel=g('cd-co-sel');
-  if(S.co.length){
-    sel.innerHTML=S.co.map(c=>`<option value="${c.n}"${c.n===D.cn?' selected':''}>${c.n}</option>`).join('');
+  sel.innerHTML='<option value="">読み込み中...</option>';
+  g('cd-w-txt').value=D.wn||'';
+  openM('chdev-modal');
+
+  let companies=S.co.map(c=>c.n).filter(Boolean);
+  if(!companies.length && S.gas){
+    try{
+      const base=S.gas.split('?')[0];
+      const res=await fetch(base+'?action=getWorkers',{method:'GET',redirect:'follow'});
+      const workers=await res.json();
+      if(Array.isArray(workers)){
+        const coSet=new Set(workers.map(w=>w.company).filter(Boolean));
+        companies=[...coSet];
+      }
+    }catch(e){}
+  }
+
+  if(companies.length){
+    sel.innerHTML=companies.map(n=>`<option value="${n}"${n===D.cn?' selected':''}>${n}</option>`).join('');
   }else{
     sel.innerHTML='<option value="">（会社未登録）</option>';
   }
-  g('cd-w-txt').value=D.wn||'';
-  openM('chdev-modal');
   setTimeout(()=>g('cd-w-txt').focus(),300);
 }
 function cdUpdW(){}
@@ -1104,10 +1138,12 @@ function popWSel(sel,cid,sid){
   if(!co||!co.ws.length){sel.innerHTML='<option value="">作業員未登録</option>';return;}
   sel.innerHTML=co.ws.map(w=>`<option value="${w.id}"${w.id===sid?' selected':''}>${w.n}</option>`).join('');
 }
-function addCo(){
+async function addCo(){
   const n=g('co-inp').value.trim();if(!n)return;
   if(S.co.find(c=>c.n===n)){alert('同名の会社が登録されています');return;}
   S.co.push({id:uid(),n,ws:[]});svS();renderCoTree();renderFilters();g('co-inp').value='';
+  // GASの作業員マスタに会社名を登録（ダミー行として）
+  await gasGet({action:'addWorker',company:n,name:'',dob:''});
 }
 function renderCoTree(){
   const el=g('co-tree');
@@ -1129,11 +1165,13 @@ function renderCoTree(){
       </div>
     </div>`).join('');
 }
-function addWI(cid){
+async function addWI(cid){
   const inp=g('wi-'+cid);const n=inp?.value.trim();if(!n)return;
   const co=S.co.find(c=>c.id===cid);if(!co)return;
   if(co.ws.find(w=>w.n===n)){alert('同名が登録されています');return;}
   co.ws.push({id:uid(),n});svS();renderCoTree();renderFilters();if(inp)inp.value='';
+  // GASの作業員マスタに追加
+  await gasGet({action:'addWorker',company:co.n,name:n,dob:''});
 }
 function delW(cid,wid){if(!confirm('削除しますか？'))return;const co=S.co.find(c=>c.id===cid);if(co)co.ws=co.ws.filter(w=>w.id!==wid);svS();renderCoTree();renderFilters();}
 function delCo(id){if(!confirm('会社ごと削除しますか？'))return;S.co=S.co.filter(c=>c.id!==id);svS();renderCoTree();renderFilters();}
