@@ -844,9 +844,6 @@ async function wStartCam(){
   g('w-vid-wrap').style.display='block';g('w-cam-btn').style.display='none';g('w-cam-stop').style.display='flex';
   g('w-qmsg').textContent='QRコードをカメラに向けてください';
 }
-// QRから読み取った会社リストを一時保存
-let _qrCompanies = [];
-
 async function openRegModal(proj, qrCompanies){
   g('reg-proj-name').textContent=proj.n;
   g('reg-err').style.display='none';
@@ -858,20 +855,26 @@ async function openRegModal(proj, qrCompanies){
   sel.innerHTML='<option value="">読み込み中...</option>';
   openM('reg-modal');
 
-  // 優先順位：QRに含まれる会社 → ローカル → GASから取得
-  let companies = (qrCompanies && qrCompanies.length) ? qrCompanies
-    : S.co.map(c=>c.n).filter(Boolean);
+  let companies=[];
 
-  if(!companies.length && S.gas){
+  // GASのgetCompaniesで会社名一覧を取得（作業員マスタ＋打刻データから抽出）
+  if(S.gas){
     try{
       const base=S.gas.split('?')[0];
-      const res=await fetch(base+'?action=getWorkers',{method:'GET',redirect:'follow'});
-      const workers=await res.json();
-      if(Array.isArray(workers)){
-        const coSet=new Set(workers.map(w=>w.company).filter(Boolean));
-        companies=[...coSet];
-      }
+      const res=await fetch(base+'?action=getCompanies',{method:'GET',redirect:'follow'});
+      const data=await res.json();
+      if(Array.isArray(data) && data.length) companies=data;
     }catch(e){}
+  }
+
+  // GASから取得できない場合はQRのリストを使用
+  if(!companies.length && qrCompanies && qrCompanies.length){
+    companies=qrCompanies;
+  }
+
+  // それもなければローカルのリストを使用
+  if(!companies.length){
+    companies=S.co.map(c=>c.n).filter(Boolean);
   }
 
   if(companies.length){
@@ -882,7 +885,7 @@ async function openRegModal(proj, qrCompanies){
   setTimeout(()=>g('reg-w-txt').focus(),300);
 }
 function regUpdW(){}
-function completeReg(){
+async function completeReg(){
   const cn=g('reg-co-sel').value.trim();
   const wn=g('reg-w-txt').value.trim();
   const dob=g('reg-dob').value;
@@ -895,6 +898,17 @@ function completeReg(){
   svD();closeM('reg-modal');
   enterWorker();
   if(fsPendingProj){wShowPanel(fsPendingProj);fsPendingProj=null;}
+  // 作業員マスタシートに自動追記
+  if(S.gas){
+    try{
+      await gasGet({
+        action:'addWorker',
+        company:cn,
+        name:wn,
+        dob:dob
+      });
+    }catch(e){}
+  }
 }
 function cancelReg(){closeM('reg-modal');fsPendingProj=null;g('fs-qmsg').textContent='';}
 
