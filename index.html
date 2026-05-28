@@ -1413,17 +1413,23 @@ function calcH(t1,t2){const[h1,m1]=t1.split(':').map(Number),[h2,m2]=t2.split(':
 async function sendGAS(rec){
   if(!S.gas)return;
   try{
-    const res=await fetch(S.gas,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        projectId:rec.pid,projectName:rec.pn,
-        worker:rec.wn,company:rec.cn,
-        type:rec.type,date:rec.date,time:rec.time,
-        timestamp:rec.ts,proxy:rec.proxy,note:rec.note
-      })
-    });
-    // サーバーから返ってきた時刻でローカルの記録を上書き
+    // GETリクエストで送信（CORSエラー回避）
+    const base=S.gas.split('?')[0];
+    const params={
+      action:'stamp',
+      projectId:rec.pid,
+      projectName:encodeURIComponent(rec.pn),
+      worker:encodeURIComponent(rec.wn),
+      company:encodeURIComponent(rec.cn),
+      type:rec.type,
+      date:encodeURIComponent(rec.date),
+      time:encodeURIComponent(rec.time),
+      timestamp:encodeURIComponent(rec.ts),
+      proxy:rec.proxy?'1':'0',
+      note:encodeURIComponent(rec.note||'')
+    };
+    const qs=Object.entries(params).map(([k,v])=>k+'='+v).join('&');
+    const res=await fetch(base+'?'+qs,{method:'GET',redirect:'follow'});
     try{
       const data=await res.json();
       if(data.serverDate && data.serverTime){
@@ -1435,7 +1441,7 @@ async function sendGAS(rec){
         }
       }
     }catch(e){}
-  }catch(e){}
+  }catch(e){console.error('sendGAS error:',e);}
 }
 
 /* ===== 作業員履歴 ===== */
