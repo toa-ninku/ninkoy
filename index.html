@@ -483,13 +483,20 @@ lbl:first-of-type{margin-top:0}
         <div id="worker-edit-list"><div class="empty">データなし</div></div>
       </div>
 
-      <!-- 会社・作業員管理 -->
+      <!-- 会社管理（編集機能付き） -->
       <div class="card">
-        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>会社・作業員管理（打刻時の選択肢）</div>
+        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>会社名の管理</div>
+        <div class="ibox">ここで登録した会社名が作業員の端末登録画面のプルダウンに表示されます。</div>
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <input type="text" id="co-inp" placeholder="会社名を追加" style="flex:1;margin:0">
           <button class="btn btn-blue btn-sm" onclick="addCo()"><i class="ti ti-plus" aria-hidden="true"></i>追加</button>
         </div>
+        <div id="co-list-edit"><div class="empty">未登録</div></div>
+      </div>
+
+      <!-- 作業員管理 -->
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-users" aria-hidden="true"></i>作業員管理（打刻時の選択肢）</div>
         <div id="co-tree"><div class="empty">未登録</div></div>
       </div>
 
@@ -543,6 +550,18 @@ lbl:first-of-type{margin-top:0}
     <lbl style="margin-top:10px">作業員名</lbl><input type="text" id="we-wn" placeholder="氏名" style="margin-bottom:0">
     <button class="btn btn-blue" onclick="saveWorkerEdit()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
     <button class="btn btn-ghost" onclick="closeM('worker-edit-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- 会社名編集モーダル -->
+<div class="mbg" id="co-edit-modal">
+  <div class="modal">
+    <div class="mtitle"><i class="ti ti-edit" aria-hidden="true"></i>会社名を編集</div>
+    <input type="hidden" id="co-edit-id">
+    <lbl>会社名</lbl>
+    <input type="text" id="co-edit-name" placeholder="会社名" style="margin-bottom:0">
+    <button class="btn btn-blue" onclick="saveCoEdit()" style="margin-top:14px"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
+    <button class="btn btn-ghost" onclick="closeM('co-edit-modal')">キャンセル</button>
   </div>
 </div>
 
@@ -852,29 +871,27 @@ async function openRegModal(proj, qrCompanies){
   g('reg-dob').value=`${y}-01-01`;
 
   const sel=g('reg-co-sel');
-  sel.innerHTML='<option value="">読み込み中...</option>';
   openM('reg-modal');
 
-  let companies=[];
+  // 会社名取得の優先順位：
+  // ① アプリのlocalStorage（設定画面で登録した会社名）
+  // ② QRに埋め込まれた会社リスト
+  // ③ GASから取得
+  let companies=S.co.map(c=>c.n).filter(Boolean);
 
-  // GASのgetCompaniesで会社名一覧を取得（作業員マスタ＋打刻データから抽出）
-  if(S.gas){
+  // ①がなければQRのリストを使用
+  if(!companies.length && qrCompanies && qrCompanies.length){
+    companies=qrCompanies;
+  }
+
+  // それもなければGASから取得
+  if(!companies.length && S.gas){
     try{
       const base=S.gas.split('?')[0];
       const res=await fetch(base+'?action=getCompanies',{method:'GET',redirect:'follow'});
       const data=await res.json();
       if(Array.isArray(data) && data.length) companies=data;
     }catch(e){}
-  }
-
-  // GASから取得できない場合はQRのリストを使用
-  if(!companies.length && qrCompanies && qrCompanies.length){
-    companies=qrCompanies;
-  }
-
-  // それもなければローカルのリストを使用
-  if(!companies.length){
-    companies=S.co.map(c=>c.n).filter(Boolean);
   }
 
   if(companies.length){
@@ -1094,9 +1111,60 @@ function mNav(p,btn){
 }
 function refMgr(){renderProjs();renderRecs();renderFilters();renderSum();}
 function refCfg(){
+  renderCoListEdit();
   renderCoTree();
   renderWorkerEditList();
   g('gas-url').value=S.gas||'';g('std-h').value=S.stdH||8;g('half-h').value=S.halfH||4;
+}
+
+/* ===== 会社名一覧（編集機能付き） ===== */
+function renderCoListEdit(){
+  const el=g('co-list-edit');
+  if(!el)return;
+  if(!S.co.length){el.innerHTML='<div class="empty">未登録</div>';return;}
+  el.innerHTML=S.co.map(c=>`
+    <div class="row">
+      <div style="flex:1;font-size:14px;font-weight:600">${c.n}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-blue btn-sm" onclick="openCoEdit('${c.id}','${c.n.replace(/'/g,"\\'")}')">
+          <i class="ti ti-edit"></i>編集
+        </button>
+        <button class="btn btn-red btn-sm" onclick="delCo('${c.id}')">
+          <i class="ti ti-trash"></i>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function openCoEdit(id, name){
+  g('co-edit-id').value=id;
+  g('co-edit-name').value=name;
+  openM('co-edit-modal');
+  setTimeout(()=>g('co-edit-name').focus(),300);
+}
+
+async function saveCoEdit(){
+  const id=g('co-edit-id').value;
+  const newName=g('co-edit-name').value.trim();
+  if(!newName){alert('会社名を入力してください');return;}
+  const co=S.co.find(c=>c.id===id);
+  if(!co)return;
+  const oldName=co.n;
+  co.n=newName;
+  // 打刻履歴の会社名も更新
+  S.recs.forEach(r=>{if(r.cn===oldName)r.cn=newName;});
+  // 端末登録情報も更新
+  if(D.cn===oldName){D.cn=newName;svD();updWBanner();}
+  svS();
+  closeM('co-edit-modal');
+  renderCoListEdit();
+  renderCoTree();
+  renderFilters();
+  // GASにも更新を通知（addWorkerで新しい会社名を登録）
+  if(S.gas){
+    try{ await gasGet({action:'addWorker',company:newName,name:'',dob:''}); }catch(e){}
+  }
+  alert('✅ 更新しました');
 }
 
 /* ===== 登録作業員の編集 ===== */
@@ -1158,8 +1226,12 @@ function popWSel(sel,cid,sid){
 async function addCo(){
   const n=g('co-inp').value.trim();if(!n)return;
   if(S.co.find(c=>c.n===n)){alert('同名の会社が登録されています');return;}
-  S.co.push({id:uid(),n,ws:[]});svS();renderCoTree();renderFilters();g('co-inp').value='';
-  // GASの作業員マスタに会社名を登録（ダミー行として）
+  S.co.push({id:uid(),n,ws:[]});svS();
+  renderCoListEdit();
+  renderCoTree();
+  renderFilters();
+  g('co-inp').value='';
+  // GASの作業員マスタに会社名を登録
   await gasGet({action:'addWorker',company:n,name:'',dob:''});
 }
 function renderCoTree(){
