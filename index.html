@@ -658,6 +658,9 @@ lbl:first-of-type{margin-top:0}
 <script>
 const DP='admin1234';
 const DCP='chief1234';
+// デフォルトのGAS URL（変更不要）
+var DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzhTpHWZk0ziIYj9yBewtHApaG7lcnDUwd3DDUhj5wCDNbT_clLHm5rzjS8mf5anMAb_Q/exec';
+
 let S={co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP};
 let D={ok:false,cid:'',cn:'',wid:'',wn:''};
 let mgrRole=null; // 'super' or 'chief'
@@ -669,6 +672,8 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function loadAll(){
   try{const s=localStorage.getItem('ca6s');if(s)S=Object.assign({co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP},JSON.parse(s));}catch(e){}
   try{const d=localStorage.getItem('ca6d');if(d)D=Object.assign({ok:false,cid:'',cn:'',wid:'',wn:''},JSON.parse(d));}catch(e){}
+  // GAS URLが未設定の場合はデフォルト値を使用
+  if(!S.gas) S.gas = DEFAULT_GAS_URL;
 }
 function svS(){try{localStorage.setItem('ca6s',JSON.stringify(S));}catch(e){}}
 function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
