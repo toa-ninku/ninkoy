@@ -1335,17 +1335,76 @@ async function pStartCam(){
   g('p-qmsg').textContent='QRコードをカメラに向けてください';
 }
 function pStopCam(){stopCam({s:pS,t:pT});pS=null;pT=null;g('p-vid-wrap').style.display='none';g('p-cam-btn').style.display='flex';g('p-cam-stop').style.display='none';g('p-qmsg').textContent='';}
-function pShowPanel(proj){
+// GASから取得した代理打刻用の会社・作業員データ
+let pGasWorkers=[];
+
+async function pShowPanel(proj){
   pSP=proj;g('p-pname').textContent=proj.n;g('p-psub').textContent=proj.addr||'';
-  popCoSel(g('p-co'),'');pUpdW();
   g('p-panel').style.display='block';g('p-qmsg').textContent='✅ QR読み取り成功';
+  // GASから作業員一覧を取得してプルダウンを更新
+  await pLoadWorkers();
 }
-function pUpdW(){popWSel(g('p-w'),g('p-co').value,'');}
-function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';}
+
+async function pLoadWorkers(){
+  const coSel=g('p-co');
+  coSel.innerHTML='<option value="">読み込み中...</option>';
+  pGasWorkers=[];
+
+  // まずGASから取得を試みる
+  if(S.gas){
+    try{
+      const base=S.gas.split('?')[0];
+      const res=await fetch(base+'?action=getWorkers',{method:'GET',redirect:'follow'});
+      const workers=await res.json();
+      if(Array.isArray(workers)&&workers.length){
+        pGasWorkers=workers;
+      }
+    }catch(e){}
+  }
+
+  if(pGasWorkers.length){
+    // GASのデータを使用
+    const cos=[...new Set(pGasWorkers.map(w=>w.company).filter(Boolean))];
+    coSel.innerHTML=cos.map(n=>`<option value="${n}">${n}</option>`).join('');
+  } else if(S.co.length){
+    // localStorageのデータを使用
+    coSel.innerHTML=S.co.map(c=>`<option value="${c.id}">${c.n}</option>`).join('');
+  } else {
+    coSel.innerHTML='<option value="">会社未登録</option>';
+  }
+  pUpdW();
+}
+
+function pUpdW(){
+  const wSel=g('p-w');
+  if(pGasWorkers.length){
+    // GASデータから作業員を絞り込む
+    const coName=g('p-co').value;
+    const ws=pGasWorkers.filter(w=>w.company===coName);
+    wSel.innerHTML=ws.length
+      ?ws.map(w=>`<option value="${w.name}">${w.name}</option>`).join('')
+      :'<option value="">作業員未登録</option>';
+  } else {
+    // localStorageのデータを使用
+    popWSel(wSel,g('p-co').value,'');
+  }
+}
+
+function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';pGasWorkers=[];}
 function pStamp(type){
   if(!pSP)return;
-  const cid=g('p-co').value,wid=g('p-w').value;if(!wid){alert('作業員を選択してください');return;}
-  const co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);if(!w)return;
+  const coVal=g('p-co').value,wVal=g('p-w').value;
+  if(!wVal){alert('作業員を選択してください');return;}
+  let co,w;
+  if(pGasWorkers.length){
+    // GASデータの場合は名前ベースでオブジェクト生成
+    co={id:uid(),n:coVal};
+    w={id:uid(),n:wVal};
+  } else {
+    co=S.co.find(c=>c.id===coVal);
+    w=co?.ws.find(x=>x.id===wVal);
+    if(!w)return;
+  }
   doStamp(pSP,w,co,type,true,'代理打刻');pCancel();
 }
 
