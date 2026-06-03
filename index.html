@@ -208,7 +208,7 @@ lbl:first-of-type{margin-top:0}
         <div class="rc-name">管理者として利用</div>
         <div class="rc-desc">案件・作業員の管理、打刻の確認・修正</div>
       </div>
-      <button class="btn btn-ghost" onclick="closeApp()" style="width:100%;margin-top:4px;font-size:13px;color:var(--text3)"><i class="ti ti-x" aria-hidden="true"></i>アプリを閉じる</button>
+      <button class="btn btn-ghost" onclick="closeApp()" style="width:100%;margin-top:4px;font-size:13px;color:var(--text3)"><i class="ti ti-help-circle" aria-hidden="true"></i>終了方法を確認する</button>
     </div>
   </div>
 </div>
@@ -296,7 +296,20 @@ lbl:first-of-type{margin-top:0}
       <lbl>代理する作業員の会社</lbl>
       <select id="p-co" onchange="pUpdW()"></select>
       <lbl style="margin-top:10px">代理する作業員名</lbl>
-      <select id="p-w" style="margin-bottom:0"></select>
+      <select id="p-w" onchange="pToggleManual()"></select>
+
+      <!-- 直接入力エリア（「リストにない」選択時に表示） -->
+      <div id="p-manual-area" style="display:none;margin-top:10px;padding:10px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">📝 作業員情報を直接入力してください</div>
+        <lbl>会社名</lbl>
+        <input type="text" id="p-manual-co" placeholder="会社名を入力" style="margin-bottom:8px">
+        <lbl>作業員名</lbl>
+        <input type="text" id="p-manual-name" placeholder="作業員名を入力" style="margin-bottom:8px">
+        <lbl>生年月日</lbl>
+        <input type="date" id="p-manual-dob" style="margin-bottom:4px">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">✅ 打刻と同時に作業員マスタに自動登録されます</div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
         <button class="btn btn-green btn-xl" onclick="pStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
         <button class="btn btn-red btn-xl" onclick="pStamp('out')"><i class="ti ti-logout" aria-hidden="true"></i>退勤</button>
@@ -733,12 +746,14 @@ function init(){
 /* ===== 画面切替 ===== */
 function hideAll(){['first-setup','worker-mode','proxy-mode','mgr-mode'].forEach(id=>g(id).style.display='none');}
 function closeApp(){
-  if(!confirm('アプリを閉じますか？')) return;
-  window.close();
-  // window.closeが効かない場合（PWA・スマホ）はメッセージ表示
-  setTimeout(function(){
-    g('fs-qmsg').textContent='ホーム画面に戻ってアプリを終了してください。';
-  }, 400);
+  alert(
+    '【アプリの終了方法】\n\n' +
+    '📱 ホーム画面から開いている場合\n' +
+    '画面下からスワイプアップしてホームに戻り、' +
+    'アプリ一覧で本アプリを上にスワイプして終了してください。\n\n' +
+    '🌐 Safariで開いている場合\n' +
+    'タブボタンをタップしてタブを閉じてください。'
+  );
 }
 function showFirst(){
   hideAll();g('first-setup').style.display='flex';
@@ -1364,42 +1379,73 @@ async function pLoadWorkers(){
 
 function pUpdW(){
   const wSel=g('p-w');
+  let options='';
   if(pGasWorkers.length){
-    // GASデータから作業員を絞り込む
     const coName=g('p-co').value;
     const ws=pGasWorkers.filter(w=>w.company===coName);
     if(ws.length){
-      wSel.innerHTML=ws.map(w=>`<option value="${w.name}">${w.name}</option>`).join('');
-      return;
+      options=ws.map(w=>`<option value="${w.name}">${w.name}</option>`).join('');
     }
-    // GASに作業員データがない場合はlocalStorageにフォールバック
   }
-  // localStorageのデータを使用（会社名で一致するものを探す）
-  const coName=g('p-co').value;
-  const co=S.co.find(c=>c.n===coName||c.id===coName);
-  if(co&&co.ws&&co.ws.length){
-    wSel.innerHTML=co.ws.map(w=>`<option value="${w.id}">${w.n}</option>`).join('');
-  } else {
-    wSel.innerHTML='<option value="">作業員未登録</option>';
+  if(!options){
+    // localStorageのデータを使用
+    const coName=g('p-co').value;
+    const co=S.co.find(c=>c.n===coName||c.id===coName);
+    if(co&&co.ws&&co.ws.length){
+      options=co.ws.map(w=>`<option value="${w.id}">${w.n}</option>`).join('');
+    }
+  }
+  // 末尾に「リストにない」を追加
+  wSel.innerHTML=(options||'')+'<option value="__manual__">リストにない（直接入力）</option>';
+  pToggleManual();
+}
+function pToggleManual(){
+  const isManual=g('p-w').value==='__manual__';
+  g('p-manual-area').style.display=isManual?'block':'none';
+  if(isManual){
+    // 選択中の会社名を自動セット
+    const coName=g('p-co').value;
+    g('p-manual-co').value=coName||'';
+    setTimeout(()=>g('p-manual-name').focus(),100);
   }
 }
 
 function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';pGasWorkers=[];}
-function pStamp(type){
+async function pStamp(type){
   if(!pSP)return;
-  const coVal=g('p-co').value,wVal=g('p-w').value;
-  if(!wVal){alert('作業員を選択してください');return;}
+  const wVal=g('p-w').value;
   let co,w;
-  // GASデータで作業員が見つかった場合（valueが名前）
-  const gasWs=pGasWorkers.filter(x=>x.company===coVal);
-  if(gasWs.length){
-    co={id:uid(),n:coVal};
-    w={id:uid(),n:wVal};
+
+  if(wVal==='__manual__'){
+    // 直接入力モード
+    const manCo=g('p-manual-co').value.trim();
+    const manName=g('p-manual-name').value.trim();
+    const manDob=g('p-manual-dob').value;
+    if(!manCo){alert('会社名を入力してください');return;}
+    if(!manName){alert('作業員名を入力してください');return;}
+    if(!manDob){alert('生年月日を入力してください');return;}
+    co={id:uid(),n:manCo};
+    w={id:uid(),n:manName};
+    // GASの作業員マスタに自動登録
+    try{
+      await gasGet({action:'addWorker',company:manCo,name:manName,dob:manDob});
+      // localStorageにも追加
+      let coRec=S.co.find(c=>c.n===manCo);
+      if(!coRec){coRec={id:co.id,n:manCo,ws:[]};S.co.push(coRec);}
+      if(!coRec.ws.find(x=>x.n===manName)){coRec.ws.push({id:w.id,n:manName});svS();}
+    }catch(e){}
   } else {
-    // localStorageのデータ（valueがID）
-    co=S.co.find(c=>c.n===coVal||c.id===coVal);
-    w=co?.ws.find(x=>x.id===wVal);
-    if(!w){alert('作業員が見つかりません');return;}
+    const coVal=g('p-co').value;
+    if(!wVal){alert('作業員を選択してください');return;}
+    const gasWs=pGasWorkers.filter(x=>x.company===coVal);
+    if(gasWs.length){
+      co={id:uid(),n:coVal};
+      w={id:uid(),n:wVal};
+    } else {
+      co=S.co.find(c=>c.n===coVal||c.id===coVal);
+      w=co?.ws.find(x=>x.id===wVal);
+      if(!w){alert('作業員が見つかりません');return;}
+    }
   }
   doStamp(pSP,w,co,type,true,'代理打刻');pCancel();
 }
