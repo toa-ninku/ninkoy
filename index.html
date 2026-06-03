@@ -827,6 +827,12 @@ async function fsOnQR(raw){
       proj=await fetchProjById(d.id);
     }
     if(!proj){g('fs-qmsg').textContent='⚠ 未登録の案件QRです。管理者に確認してください。';return;}
+    // ★ すでに端末登録済みの場合は直接打刻画面へ
+    if(D.ok){
+      enterWorker();
+      wShowPanel(proj);
+      return;
+    }
     fsPendingProj=proj;
     // QRに含まれる会社リストを取り出す
     const qrCompanies = (d.cos && Array.isArray(d.cos)) ? d.cos : [];
