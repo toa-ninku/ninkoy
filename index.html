@@ -377,6 +377,7 @@ lbl:first-of-type{margin-top:0}
       <button class="nv super-only" onclick="mNav('sum',this)"><i class="ti ti-chart-bar" aria-hidden="true"></i>集計</button>
       <button class="nv" onclick="mNav('edit',this)"><i class="ti ti-edit" aria-hidden="true"></i>管理</button>
       <button class="nv super-only" onclick="mNav('cfg',this)"><i class="ti ti-settings" aria-hidden="true"></i>設定</button>
+      <button class="nv super-only" onclick="mNav('log',this)"><i class="ti ti-history" aria-hidden="true"></i>履歴</button>
     </nav>
 
     <!-- 打刻 -->
@@ -549,6 +550,17 @@ lbl:first-of-type{margin-top:0}
       </div>
       <div class="card"><button class="btn btn-red" onclick="clearAll()"><i class="ti ti-trash" aria-hidden="true"></i>全データをリセット</button></div>
     </div>
+
+    <!-- 編集履歴ページ -->
+    <div id="mp-log" class="pg">
+      <div class="card">
+        <div class="ctitle"><i class="ti ti-history" aria-hidden="true"></i>編集履歴</div>
+        <div class="ibox">打刻の追加・修正・削除・パスワード変更などの操作履歴です。</div>
+        <button class="btn btn-ghost" onclick="loadEditLog()" style="margin-bottom:10px;font-size:13px"><i class="ti ti-refresh"></i>最新に更新</button>
+        <div id="edit-log-list"><div class="empty">読み込み中...</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -730,8 +742,18 @@ async function autoSyncProjs(){
   }
 }
 
+// 管理者専用URLキー（このキーがURLにある場合のみスーパー管理者タブを表示）
+const ADMIN_URL_KEY = 'toa2026';
+let isSuperUrlMode = false; // URLキーが一致した場合true
+
 function init(){
   loadAll();
+  // URLに管理者キーが含まれるか判定
+  const params = new URLSearchParams(window.location.search);
+  isSuperUrlMode = params.get('admin') === ADMIN_URL_KEY;
+  // スーパー管理者タブの表示制御
+  g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
+  if(!isSuperUrlMode) switchLoginTab('chief'); // デフォルトを現場責任者に
   // localStorage が使えるか確認
   try{
     localStorage.setItem('ca6test','1');
@@ -999,30 +1021,40 @@ function switchLoginTab(tab){
 }
 
 /* ===== 管理者ログイン ===== */
-function mgrLogin(){
+async function mgrLogin(){
   const pw=g('mgr-pw').value;
-  if(pw===S.pw){
+  // GASからパスワードを取得して検証（取得失敗時はlocalStorage値で検証）
+  let validPw = S.pw;
+  try{
+    const res = await gasGet({action:'getPassword',role:'super'});
+    if(res && res.pw) validPw = res.pw;
+  }catch(e){}
+  if(pw===validPw){
+    S.pw=validPw; svS(); // GASの値をlocalStorageに同期
     mgrRole='super';
     g('mgr-login').style.display='none';g('mgr-panel').style.display='block';
     g('mgr-pw').value='';g('mgr-err').style.display='none';
-    // スーパー管理者：全タブ表示
     document.querySelectorAll('.super-only').forEach(el=>el.style.display='flex');
     g('mgr-banner-text').textContent='スーパー管理者モード';
     g('mgr-banner').className='banner banner-blue';
     refMgr();
   }else{g('mgr-err').style.display='block';}
 }
-function chiefLogin(){
+async function chiefLogin(){
   const pw=g('chief-pw').value;
-  if(pw===S.cpw){
+  let validPw = S.cpw;
+  try{
+    const res = await gasGet({action:'getPassword',role:'chief'});
+    if(res && res.pw) validPw = res.pw;
+  }catch(e){}
+  if(pw===validPw){
+    S.cpw=validPw; svS();
     mgrRole='chief';
     g('mgr-login').style.display='none';g('mgr-panel').style.display='block';
     g('chief-pw').value='';g('chief-err').style.display='none';
-    // 現場責任者：制限タブを非表示
     document.querySelectorAll('.super-only').forEach(el=>el.style.display='none');
     g('mgr-banner-text').textContent='現場責任者モード';
     g('mgr-banner').className='banner banner-orange';
-    // 管理タブを表示してそこに移動
     mNav('edit', g('mgr-nav').querySelector('.nv:not(.super-only)'));
   }else{g('chief-err').style.display='block';}
 }
@@ -1034,21 +1066,74 @@ function mgrLogout(){
   D.ok?enterWorker():showFirst();
 }
 function tglPw(id,btn){const el=g(id);const s=el.type==='password';el.type=s?'text':'password';btn.innerHTML=s?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';}
-function chgPw(){
+async function chgPw(){
   const o=g('pw-o').value,n=g('pw-n').value,c=g('pw-c').value,msg=g('pw-msg');
   if(o!==S.pw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
   if(n.length<6){msg.style.color='var(--red)';msg.textContent='6文字以上で設定してください';return;}
   if(n!==c){msg.style.color='var(--red)';msg.textContent='確認パスワードが一致しません';return;}
-  S.pw=n;svS();msg.style.color='var(--green)';msg.textContent='✅ 変更しました';
+  S.pw=n;svS();
+  // GASにも保存して複数端末で共有
+  try{ await gasGet({action:'setPassword',role:'super',pw:n}); }catch(e){}
+  addEditLog('パスワード変更','スーパー管理者PW変更');
+  msg.style.color='var(--green)';msg.textContent='✅ 変更しました（全端末に反映）';
   ['pw-o','pw-n','pw-c'].forEach(id=>g(id).value='');
 }
-function chgChiefPw(){
+async function chgChiefPw(){
   const o=g('cpw-o').value,n=g('cpw-n').value,c=g('cpw-c').value,msg=g('cpw-msg');
   if(o!==S.cpw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
   if(n.length<6){msg.style.color='var(--red)';msg.textContent='6文字以上で設定してください';return;}
   if(n!==c){msg.style.color='var(--red)';msg.textContent='確認パスワードが一致しません';return;}
-  S.cpw=n;svS();msg.style.color='var(--green)';msg.textContent='✅ 変更しました';
+  S.cpw=n;svS();
+  try{ await gasGet({action:'setPassword',role:'chief',pw:n}); }catch(e){}
+  addEditLog('パスワード変更','現場責任者PW変更');
+  msg.style.color='var(--green)';msg.textContent='✅ 変更しました（全端末に反映）';
   ['cpw-o','cpw-n','cpw-c'].forEach(id=>g(id).value='');
+}
+
+/* ===== 編集履歴 ===== */
+function addEditLog(type, detail){
+  const now = new Date();
+  const date = now.toLocaleDateString('ja-JP');
+  const time = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  const role = mgrRole==='super'?'スーパー管理者':'現場責任者';
+  const entry = {date,time,role,type,detail};
+  // localStorageに追加
+  if(!S.editLog) S.editLog=[];
+  S.editLog.unshift(entry);
+  if(S.editLog.length>200) S.editLog=S.editLog.slice(0,200);
+  svS();
+  // GASのスプレッドシートにも記録
+  try{ gasGet({action:'addEditLog',date,time,role,type,detail}); }catch(e){}
+}
+function loadEditLog(){
+  const el=g('edit-log-list');
+  if(!el) return;
+  // GASから最新の履歴を取得
+  gasGet({action:'getEditLog'}).then(res=>{
+    let logs=[];
+    if(Array.isArray(res)&&res.length) logs=res;
+    else if(S.editLog&&S.editLog.length) logs=S.editLog;
+    if(!logs.length){el.innerHTML='<div class="empty">履歴なし</div>';return;}
+    el.innerHTML=logs.map(r=>`
+      <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${r.type}</div>
+          <div style="font-size:12px;color:var(--text2)">${r.detail||''}</div>
+          <div style="font-size:11px;color:var(--text3)">${r.date} ${r.time}　<span class="bdg" style="font-size:10px;background:var(--surface2)">${r.role}</span></div>
+        </div>
+      </div>`).join('');
+  }).catch(()=>{
+    if(S.editLog&&S.editLog.length){
+      el.innerHTML=S.editLog.map(r=>`
+        <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${r.type}</div>
+            <div style="font-size:12px;color:var(--text2)">${r.detail||''}</div>
+            <div style="font-size:11px;color:var(--text3)">${r.date} ${r.time}　<span class="bdg" style="font-size:10px;background:var(--surface2)">${r.role}</span></div>
+          </div>
+        </div>`).join('');
+    }else{el.innerHTML='<div class="empty">履歴なし</div>';}
+  });
 }
 
 /* ===== パスワードリセット ===== */
@@ -1111,6 +1196,7 @@ function wNav(p,btn){
   if(p==='whist')renderWHist();
 }
 function mNav(p,btn){
+  if(p==='log') loadEditLog();
   g('mgr-panel').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
   g('mgr-panel').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
   g('mp-'+p).classList.add('on');if(btn)btn.classList.add('on');
