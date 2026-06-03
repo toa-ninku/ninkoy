@@ -377,7 +377,7 @@ lbl:first-of-type{margin-top:0}
       <button class="nv super-only" onclick="mNav('sum',this)"><i class="ti ti-chart-bar" aria-hidden="true"></i>集計</button>
       <button class="nv" onclick="mNav('edit',this)"><i class="ti ti-edit" aria-hidden="true"></i>管理</button>
       <button class="nv super-only" onclick="mNav('cfg',this)"><i class="ti ti-settings" aria-hidden="true"></i>設定</button>
-      <button class="nv super-only" onclick="mNav('log',this)"><i class="ti ti-history" aria-hidden="true"></i>履歴</button>
+      <button class="nv super-only" onclick="mNav('log',this)"><i class="ti ti-clipboard-list" aria-hidden="true"></i>操作ログ</button>
     </nav>
 
     <!-- 打刻 -->
@@ -1044,6 +1044,7 @@ async function mgrLogin(){
     g('mgr-banner-text').textContent='スーパー管理者モード';
     g('mgr-banner').className='banner banner-blue';
     refMgr();
+    syncStampsFromGas(); // GASから最新の打刻データを取得
   }else{g('mgr-err').style.display='block';}
 }
 async function chiefLogin(){
@@ -1209,6 +1210,27 @@ function mNav(p,btn){
   if(p==='sum')renderSum();if(p==='edit')refEdit();if(p==='cfg')refCfg();
 }
 function refMgr(){renderProjs();renderRecs();renderFilters();renderSum();}
+async function syncStampsFromGas(){
+  // GASのスプレッドシートから打刻データを取得してlocalStorageに反映
+  if(!S.gas) return;
+  try{
+    const base=S.gas.split('?')[0];
+    const res=await fetch(base+'?action=getStamps',{method:'GET',redirect:'follow'});
+    const data=await res.json();
+    if(!Array.isArray(data)||!data.length) return;
+    // 既存データとマージ（タイムスタンプで重複排除）
+    const existingTs=new Set(S.recs.map(r=>r.ts));
+    let added=0;
+    data.forEach(r=>{
+      if(!existingTs.has(r.ts)){
+        S.recs.push(r);
+        added++;
+      }
+    });
+    if(added>0){ svS(); renderRecs(); renderFilters(); renderSum(); }
+    console.log('GAS sync: +'+added+' records');
+  }catch(e){ console.log('GAS stamp sync failed:',e.message); }
+}
 function refCfg(){
   renderCoListEdit();
   renderCoTree();
