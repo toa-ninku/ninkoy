@@ -329,7 +329,7 @@ lbl:first-of-type{margin-top:0}
       <!-- ログイン種別選択 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
         <button class="btn btn-blue" id="tab-super" onclick="switchLoginTab('super')" style="margin:0"><i class="ti ti-shield-check" aria-hidden="true"></i>管理者</button>
-        <button class="btn btn-ghost" id="tab-chief" onclick="switchLoginTab('chief')" style="margin:0"><i class="ti ti-hard-hat" aria-hidden="true"></i>現場責任者</button>
+
       </div>
 
       <div id="login-tab-super">
@@ -359,13 +359,7 @@ lbl:first-of-type{margin-top:0}
         </div>
       </div>
 
-      <div id="login-tab-chief" style="display:none">
-        <div class="ibox"><strong>現場責任者</strong><br>打刻の追加・修正・代理打刻が可能<br>初期PW：<strong>chief1234</strong></div>
-        <lbl>パスワード</lbl>
-        <div class="pw-wrap"><input type="password" id="chief-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')chiefLogin()"><button class="pw-toggle btn-sm" onclick="tglPw('chief-pw',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
-        <button class="btn btn-orange" onclick="chiefLogin()" style="margin-top:12px"><i class="ti ti-login" aria-hidden="true"></i>ログイン</button>
-        <div id="chief-err" style="font-size:12px;color:var(--red);margin-top:6px;display:none">パスワードが正しくありません</div>
-      </div>
+
 
       <button class="btn btn-ghost" onclick="exitMode()" style="margin-top:10px;font-size:13px"><i class="ti ti-arrow-left" aria-hidden="true"></i>戻る</button>
     </div>
@@ -542,15 +536,7 @@ lbl:first-of-type{margin-top:0}
         <button class="btn btn-blue" onclick="chgPw()" style="margin-top:12px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更する</button>
         <div id="pw-msg" style="font-size:12px;margin-top:6px"></div>
       </div>
-      <div class="card">
-        <div class="ctitle"><i class="ti ti-key" aria-hidden="true"></i>現場責任者パスワード変更</div>
-        <div class="ibox">初期PW：<strong>chief1234</strong></div>
-        <lbl>現在のパスワード</lbl><div class="pw-wrap"><input type="password" id="cpw-o"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-o',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
-        <lbl style="margin-top:10px">新しいパスワード（6文字以上）</lbl><div class="pw-wrap"><input type="password" id="cpw-n"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-n',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
-        <lbl style="margin-top:10px">確認</lbl><div class="pw-wrap"><input type="password" id="cpw-c"><button class="pw-toggle btn-sm" onclick="tglPw('cpw-c',this)" tabindex="-1"><i class="ti ti-eye" aria-hidden="true"></i></button></div>
-        <button class="btn btn-orange" onclick="chgChiefPw()" style="margin-top:12px"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更する</button>
-        <div id="cpw-msg" style="font-size:12px;margin-top:6px"></div>
-      </div>
+
 
       <!-- GAS連携 -->
       <div class="card">
@@ -721,20 +707,19 @@ lbl:first-of-type{margin-top:0}
 
 <script>
 const DP='admin1234';
-const DCP='chief1234';
 // デフォルトのGAS URL（変更不要）
 var DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzhTpHWZk0ziIYj9yBewtHApaG7lcnDUwd3DDUhj5wCDNbT_clLHm5rzjS8mf5anMAb_Q/exec';
 
-let S={co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP};
+let S={co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP};
 let D={ok:false,cid:'',cn:'',wid:'',wn:''};
-let mgrRole=null; // 'super' or 'chief'
+let mgrRole=null;
 let wSP=null,pSP=null,mSP=null;
 let wS=null,wT=null,pS=null,pT=null,mS=null,mT=null;
 let curQR=null,manProxy=false;
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function loadAll(){
-  try{const s=localStorage.getItem('ca6s');if(s)S=Object.assign({co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP,cpw:DCP},JSON.parse(s));}catch(e){}
+  try{const s=localStorage.getItem('ca6s');if(s)S=Object.assign({co:[],recs:[],projs:[],gas:'',stdH:8,halfH:4,pw:DP},JSON.parse(s));}catch(e){}
   try{const d=localStorage.getItem('ca6d');if(d)D=Object.assign({ok:false,cid:'',cn:'',wid:'',wn:''},JSON.parse(d));}catch(e){}
   // GAS URLが未設定の場合はデフォルト値を使用
   if(!S.gas) S.gas = DEFAULT_GAS_URL;
@@ -794,7 +779,6 @@ function init(){
   isSuperUrlMode = params.get('admin') === ADMIN_URL_KEY;
   // 管理者タブの表示制御
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
-  if(!isSuperUrlMode) switchLoginTab('chief'); // デフォルトを現場責任者に
   // localStorage が使えるか確認
   try{
     localStorage.setItem('ca6test','1');
@@ -1059,13 +1043,7 @@ function exitMode(){
   showFirst();
 }
 
-/* ===== ログインタブ切替 ===== */
-function switchLoginTab(tab){
-  g('tab-super').className='btn '+(tab==='super'?'btn-blue':'btn-ghost');
-  g('tab-chief').className='btn '+(tab==='chief'?'btn-orange':'btn-ghost');
-  g('login-tab-super').style.display=tab==='super'?'block':'none';
-  g('login-tab-chief').style.display=tab==='chief'?'block':'none';
-}
+
 
 /* ===== 管理者ログイン ===== */
 async function mgrLogin(){
@@ -1088,24 +1066,7 @@ async function mgrLogin(){
     syncStampsFromGas(); // GASから最新の打刻データを取得
   }else{g('mgr-err').style.display='block';}
 }
-async function chiefLogin(){
-  const pw=g('chief-pw').value;
-  let validPw = S.cpw;
-  try{
-    const res = await gasGet({action:'getPassword',role:'chief'});
-    if(res && res.pw) validPw = res.pw;
-  }catch(e){}
-  if(pw===validPw){
-    S.cpw=validPw; svS();
-    mgrRole='chief';
-    g('mgr-login').style.display='none';g('mgr-panel').style.display='block';
-    g('chief-pw').value='';g('chief-err').style.display='none';
-    document.querySelectorAll('.super-only').forEach(el=>el.style.display='none');
-    g('mgr-banner-text').textContent='現場責任者モード';
-    g('mgr-banner').className='banner banner-orange';
-    mNav('edit', g('mgr-nav').querySelector('.nv:not(.super-only)'));
-  }else{g('chief-err').style.display='block';}
-}
+
 function mgrLogout(){
   mStopCam();mgrRole=null;
   g('mgr-login').style.display='block';g('mgr-panel').style.display='none';
@@ -1126,24 +1087,14 @@ async function chgPw(){
   msg.style.color='var(--green)';msg.textContent='✅ 変更しました（全端末に反映）';
   ['pw-o','pw-n','pw-c'].forEach(id=>g(id).value='');
 }
-async function chgChiefPw(){
-  const o=g('cpw-o').value,n=g('cpw-n').value,c=g('cpw-c').value,msg=g('cpw-msg');
-  if(o!==S.cpw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
-  if(n.length<6){msg.style.color='var(--red)';msg.textContent='6文字以上で設定してください';return;}
-  if(n!==c){msg.style.color='var(--red)';msg.textContent='確認パスワードが一致しません';return;}
-  S.cpw=n;svS();
-  try{ await gasGet({action:'setPassword',role:'chief',pw:n}); }catch(e){}
-  addEditLog('パスワード変更','現場責任者PW変更');
-  msg.style.color='var(--green)';msg.textContent='✅ 変更しました（全端末に反映）';
-  ['cpw-o','cpw-n','cpw-c'].forEach(id=>g(id).value='');
-}
+
 
 /* ===== 編集履歴 ===== */
 function addEditLog(type, detail){
   const now = new Date();
   const date = now.toLocaleDateString('ja-JP');
   const time = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-  const role = mgrRole==='super'?'管理者':'現場責任者';
+  const role = '管理者';
   const entry = {date,time,role,type,detail};
   // localStorageに追加
   if(!S.editLog) S.editLog=[];
