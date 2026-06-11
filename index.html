@@ -1405,7 +1405,7 @@ function getSelectedLocations(proj){
   const linkedCats=(S.projCatLinks[proj?.id]||[])
     .map(cid=>S.locCategories.find(c=>c.id===cid)).filter(Boolean);
   const allPlaces=linkedCats.flatMap(c=>c.places);
-  return locs.filter(l=>{
+  return allPlaces.filter(l=>{
     const btn=g('loc-'+l.id);
     return btn && btn.getAttribute('data-selected')==='1';
   }).map(l=>l.name);
@@ -1418,7 +1418,8 @@ async function syncLocationsFromGas(){
     const data=await gasGet({action:'getLocations'});
     if(data && typeof data==='object'){
       initLocations();
-      Object.assign(S.locations, data);
+      if(data.categories) S.locCategories=data.categories;
+      if(data.links) S.projCatLinks=data.links;
       svS();
     }
   }catch(e){}
