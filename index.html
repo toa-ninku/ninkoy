@@ -235,7 +235,6 @@ lbl:first-of-type{margin-top:0}
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn btn-ghost btn-sm" style="flex:1;margin:0;font-size:12px" onclick="enterProxy()"><i class="ti ti-replace" aria-hidden="true"></i>代理打刻</button>
-      <button class="btn btn-ghost btn-sm" style="flex:1;margin:0;font-size:12px;color:var(--orange)" onclick="openRequestModal()"><i class="ti ti-edit" aria-hidden="true"></i>修正申請</button>
     </div>
     <div class="card">
       <div class="ctitle"><i class="ti ti-qrcode" aria-hidden="true"></i>現場QRをスキャン</div>
@@ -250,8 +249,13 @@ lbl:first-of-type{margin-top:0}
     <div class="card" id="w-panel" style="display:none">
       <div class="ctitle"><i class="ti ti-map-pin" aria-hidden="true"></i><span id="w-pname"></span></div>
       <div id="w-psub" style="font-size:12px;color:var(--text2);margin-bottom:12px"></div>
-      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px">
         👤 <strong id="w-sname"></strong> <span id="w-sco" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <!-- 作業場所選択（登録されている場合のみ表示） -->
+      <div id="w-location-area" style="display:none;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="ti ti-building"></i> 作業場所を選択（複数可）</div>
+        <div id="w-location-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <button class="btn btn-green btn-xl" onclick="wStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
@@ -266,6 +270,9 @@ lbl:first-of-type{margin-top:0}
       <div class="ctitle"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴</div>
       <div id="w-hist"></div>
     </div>
+    <button class="btn" style="width:100%;background:var(--orange);color:#fff;margin-top:8px;font-size:14px" onclick="openRequestModal()">
+      <i class="ti ti-edit" aria-hidden="true"></i>打刻の修正申請
+    </button>
   </div>
 </div>
 
@@ -537,6 +544,20 @@ lbl:first-of-type{margin-top:0}
         <div id="pw-msg" style="font-size:12px;margin-top:6px"></div>
       </div>
 
+
+      <!-- 作業場所DB管理 -->
+      <div class="card super-only">
+        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>作業場所DB管理</div>
+        <div class="ibox">案件ごとに作業場所を登録します。打刻時に複数選択できます。</div>
+        <select id="loc-proj-sel" onchange="renderLocList()" style="margin-bottom:10px">
+          <option value="">案件を選択してください</option>
+        </select>
+        <div id="loc-list" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="loc-new-name" placeholder="場所名を入力（例：○○小学校）" style="flex:1">
+          <button class="btn btn-blue btn-sm" onclick="addLocation()"><i class="ti ti-plus"></i>追加</button>
+        </div>
+      </div>
 
       <!-- GAS連携 -->
       <div class="card">
@@ -1064,6 +1085,7 @@ async function mgrLogin(){
     g('mgr-banner').className='banner banner-blue';
     refMgr();
     syncStampsFromGas(); // GASから最新の打刻データを取得
+    syncLocationsFromGas(); // GASから作業場所データを取得
   }else{g('mgr-err').style.display='block';}
 }
 
@@ -1133,6 +1155,126 @@ function loadEditLog(){
         </div>`).join('');
     }else{el.innerHTML='<div class="empty">履歴なし</div>';}
   });
+}
+
+/* ===== 作業場所DB ===== */
+// S.locations = { proj_id: [{id, name}] }
+
+function initLocations(){
+  if(!S.locations) S.locations={};
+}
+
+// 管理者設定：案件プルダウンを更新
+function refreshLocProjSel(){
+  initLocations();
+  const sel=g('loc-proj-sel');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">案件を選択してください</option>'+
+    S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('');
+  if(cur) sel.value=cur;
+  renderLocList();
+}
+
+// 管理者設定：場所一覧を描画
+function renderLocList(){
+  initLocations();
+  const pid=g('loc-proj-sel')?.value;
+  const el=g('loc-list');
+  if(!el) return;
+  if(!pid){el.innerHTML='<div style="font-size:12px;color:var(--text3)">案件を選択してください</div>';return;}
+  const locs=(S.locations[pid]||[]);
+  if(!locs.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">場所が登録されていません</div>';return;}
+  el.innerHTML=locs.map(l=>`
+    <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:13px">${l.name}</span>
+      <button class="btn btn-red btn-sm" onclick="delLocation('${pid}','${l.id}')"><i class="ti ti-trash"></i>削除</button>
+    </div>`).join('');
+}
+
+// 管理者設定：場所を追加
+async function addLocation(){
+  initLocations();
+  const pid=g('loc-proj-sel')?.value;
+  const name=g('loc-new-name')?.value.trim();
+  if(!pid){alert('案件を選択してください');return;}
+  if(!name){alert('場所名を入力してください');return;}
+  if(!S.locations[pid]) S.locations[pid]=[];
+  const newLoc={id:uid(),name};
+  S.locations[pid].push(newLoc);
+  svS();
+  g('loc-new-name').value='';
+  renderLocList();
+  // GASにも保存
+  try{ await gasGet({action:'saveLocations',pid,locsJson:JSON.stringify(S.locations[pid])}); }catch(e){}
+  addEditLog('作業場所追加',S.projs.find(p=>p.id===pid)?.n+'：'+name);
+}
+
+// 管理者設定：場所を削除
+async function delLocation(pid,lid){
+  if(!confirm('削除しますか？'))return;
+  initLocations();
+  S.locations[pid]=(S.locations[pid]||[]).filter(l=>l.id!==lid);
+  svS();renderLocList();
+  try{ await gasGet({action:'saveLocations',pid,locsJson:JSON.stringify(S.locations[pid])}); }catch(e){}
+}
+
+// 打刻パネル：案件の作業場所一覧を表示
+function showLocationPanel(proj){
+  initLocations();
+  const locs=S.locations[proj.id]||[];
+  const area=g('w-location-area');
+  const listEl=g('w-location-list');
+  if(!locs.length||!area||!listEl){if(area)area.style.display='none';return;}
+  area.style.display='block';
+  listEl.innerHTML=locs.map(l=>`
+    <button class="loc-chip" id="loc-${l.id}" onclick="toggleLocation('${l.id}')"
+      style="padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer">
+      ${l.name}
+    </button>`).join('');
+}
+
+// 打刻パネル：場所の選択トグル
+function toggleLocation(lid){
+  const btn=g('loc-'+lid);
+  if(!btn) return;
+  const selected=btn.getAttribute('data-selected')==='1';
+  if(selected){
+    btn.setAttribute('data-selected','0');
+    btn.style.background='var(--bg)';
+    btn.style.borderColor='var(--border)';
+    btn.style.color='var(--text1)';
+    btn.style.fontWeight='normal';
+  } else {
+    btn.setAttribute('data-selected','1');
+    btn.style.background='var(--green)';
+    btn.style.borderColor='var(--green)';
+    btn.style.color='#fff';
+    btn.style.fontWeight='600';
+  }
+}
+
+// 打刻パネル：選択中の作業場所名を取得
+function getSelectedLocations(proj){
+  initLocations();
+  const locs=S.locations[proj?.id]||[];
+  return locs.filter(l=>{
+    const btn=g('loc-'+l.id);
+    return btn && btn.getAttribute('data-selected')==='1';
+  }).map(l=>l.name);
+}
+
+// GASから作業場所を取得
+async function syncLocationsFromGas(){
+  if(!S.gas) return;
+  try{
+    const data=await gasGet({action:'getLocations'});
+    if(data && typeof data==='object'){
+      initLocations();
+      Object.assign(S.locations, data);
+      svS();
+    }
+  }catch(e){}
 }
 
 /* ===== 打刻修正申請 ===== */
@@ -1245,6 +1387,7 @@ function cancelReset(){
 
 /* ===== ナビ ===== */
 function wNav(p,btn){
+  if(p==='whist') renderWHist();
   g('worker-mode').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
   g('worker-mode').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
   g('pg-'+p).classList.add('on');if(btn)btn.classList.add('on');
@@ -1253,12 +1396,28 @@ function wNav(p,btn){
 function mNav(p,btn){
   if(p==='log') loadEditLog();
   if(p==='req') loadRequests();
+  if(p==='cfg') refreshLocProjSel();
   g('mgr-panel').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
   g('mgr-panel').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
   g('mp-'+p).classList.add('on');if(btn)btn.classList.add('on');
   if(p==='sum')renderSum();if(p==='edit')refEdit();if(p==='cfg')refCfg();
 }
 function refMgr(){renderProjs();renderRecs();renderFilters();renderSum();}
+function renderWHist(){
+  const el=g('w-hist');
+  if(!el) return;
+  // 自分の打刻のみ表示
+  const myRecs=S.recs.filter(r=>r.wid===D.wid||r.wn===D.wn).slice(0,30);
+  if(!myRecs.length){el.innerHTML='<div class="empty">打刻履歴なし</div>';return;}
+  el.innerHTML=myRecs.map(r=>`
+    <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${r.pn}</div>
+        <div style="font-size:11px;color:var(--text2)">${r.date} ${r.time}${r.note?' / '+r.note:''}</div>
+      </div>
+      <span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span>
+    </div>`).join('');
+}
 async function syncStampsFromGas(){
   if(!S.gas) return;
   const el=g('edit-log-list');
@@ -1491,10 +1650,17 @@ function wStopCam(){stopCam({s:wS,t:wT});wS=null;wT=null;g('w-vid-wrap').style.d
 function wShowPanel(proj){
   wSP=proj;g('w-pname').textContent=proj.n;g('w-psub').textContent=proj.addr||'';
   g('w-sname').textContent=D.wn;g('w-sco').textContent=D.cn;
+  showLocationPanel(proj); // 作業場所パネルを表示
   g('w-panel').style.display='block';g('w-qmsg').textContent='✅ QR読み取り成功';
 }
 function wCancel(){wSP=null;g('w-panel').style.display='none';g('w-qmsg').textContent='';}
-function wStamp(type){if(!wSP)return;doStamp(wSP,{id:D.wid,n:D.wn},{id:D.cid,n:D.cn},type,false,'');wCancel();}
+function wStamp(type){
+  if(!wSP)return;
+  const selectedLocs=getSelectedLocations(wSP);
+  const locNote=selectedLocs.length?'作業場所:'+selectedLocs.join('・'):'';
+  doStamp(wSP,{id:D.wid,n:D.wn},{id:D.cid,n:D.cn},type,false,locNote);
+  wCancel();
+}
 
 /* ===== 代理カメラ ===== */
 async function pStartCam(){
