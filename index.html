@@ -1795,11 +1795,14 @@ async function wStartCam(){
   g('w-qmsg').textContent='QRコードをカメラに向けてください';
 }
 function wStopCam(){stopCam({s:wS,t:wT});wS=null;wT=null;g('w-vid-wrap').style.display='none';g('w-cam-btn').style.display='flex';g('w-cam-stop').style.display='none';g('w-qmsg').textContent='';}
-function wShowPanel(proj){
+async function wShowPanel(proj){
   wSP=proj;g('w-pname').textContent=proj.n;g('w-psub').textContent=proj.addr||'';
   g('w-sname').textContent=D.wn;g('w-sco').textContent=D.cn;
-  showLocationPanel(proj); // 作業場所パネルを表示
   g('w-panel').style.display='block';g('w-qmsg').textContent='✅ QR読み取り成功';
+  // GASから最新の作業場所データを取得してから表示
+  g('w-location-area').style.display='none';
+  await syncLocationsFromGas();
+  showLocationPanel(proj);
 }
 function wCancel(){wSP=null;g('w-panel').style.display='none';g('w-qmsg').textContent='';}
 function wStamp(type){
