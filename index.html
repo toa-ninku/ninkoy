@@ -545,17 +545,42 @@ lbl:first-of-type{margin-top:0}
       </div>
 
 
-      <!-- 作業場所DB管理 -->
+      <!-- 作業場所DB管理（カテゴリ制） -->
       <div class="card super-only">
-        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>作業場所DB管理</div>
-        <div class="ibox">案件ごとに作業場所を登録します。打刻時に複数選択できます。</div>
-        <select id="loc-proj-sel" onchange="renderLocList()" style="margin-bottom:10px">
-          <option value="">案件を選択してください</option>
-        </select>
-        <div id="loc-list" style="margin-bottom:10px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="loc-new-name" placeholder="場所名を入力（例：○○小学校）" style="flex:1">
-          <button class="btn btn-blue btn-sm" onclick="addLocation()"><i class="ti ti-plus"></i>追加</button>
+        <div class="ctitle"><i class="ti ti-building" aria-hidden="true"></i>作業場所カテゴリ管理</div>
+        <div class="ibox">「学校」「寮」「社宅」などのカテゴリを作り、場所を登録します。同じカテゴリを複数の案件で使い回せます。</div>
+
+        <!-- タブ切替 -->
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <button class="btn btn-blue btn-sm" id="loc-tab-cat" onclick="locTab('cat')">カテゴリ管理</button>
+          <button class="btn btn-ghost btn-sm" id="loc-tab-proj" onclick="locTab('proj')">案件に紐づけ</button>
+        </div>
+
+        <!-- カテゴリ管理パネル -->
+        <div id="loc-panel-cat">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="loc-cat-new" placeholder="カテゴリ名（例：学校、寮、社宅）" style="flex:1">
+            <button class="btn btn-blue btn-sm" onclick="addCategory()"><i class="ti ti-plus"></i>追加</button>
+          </div>
+          <select id="loc-cat-sel" onchange="renderCatDetail()" style="margin-bottom:10px">
+            <option value="">カテゴリを選択</option>
+          </select>
+          <div id="loc-cat-detail"></div>
+          <div id="loc-cat-add-area" style="display:none;margin-top:10px">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">場所名をカンマ区切りで一括入力できます</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px">例：○○小学校, △△小学校, □□中学校</div>
+            <textarea id="loc-place-input" rows="3" placeholder="場所名をカンマ（,）または改行で区切って入力" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;resize:vertical"></textarea>
+            <button class="btn btn-blue" onclick="addPlaces()" style="margin-top:6px;width:100%"><i class="ti ti-plus"></i>一括追加</button>
+          </div>
+        </div>
+
+        <!-- 案件紐づけパネル -->
+        <div id="loc-panel-proj" style="display:none">
+          <div class="ibox" style="margin-bottom:8px">案件を選択して、使用するカテゴリを紐づけてください。</div>
+          <select id="loc-proj-sel" onchange="renderProjCatLink()" style="margin-bottom:10px">
+            <option value="">案件を選択してください</option>
+          </select>
+          <div id="loc-proj-cat-list"></div>
         </div>
       </div>
 
@@ -1157,107 +1182,229 @@ function loadEditLog(){
   });
 }
 
-/* ===== 作業場所DB ===== */
-// S.locations = { proj_id: [{id, name}] }
+/* ===== 作業場所DB（カテゴリ制） ===== */
+// S.locCategories = [{id, name, places:[{id,name}]}]  カテゴリ一覧
+// S.projCatLinks  = { proj_id: [cat_id, ...] }        案件とカテゴリの紐づけ
 
 function initLocations(){
-  if(!S.locations) S.locations={};
+  if(!S.locCategories) S.locCategories=[];
+  if(!S.projCatLinks) S.projCatLinks={};
 }
 
-// 管理者設定：案件プルダウンを更新
-function refreshLocProjSel(){
+/* --- タブ切替 --- */
+function locTab(tab){
+  g('loc-panel-cat').style.display=tab==='cat'?'block':'none';
+  g('loc-panel-proj').style.display=tab==='proj'?'block':'none';
+  g('loc-tab-cat').className='btn btn-sm '+(tab==='cat'?'btn-blue':'btn-ghost');
+  g('loc-tab-proj').className='btn btn-sm '+(tab==='proj'?'btn-blue':'btn-ghost');
+  if(tab==='proj') refreshProjCatSel();
+}
+
+/* --- カテゴリ管理 --- */
+function refreshCatSel(){
+  initLocations();
+  const sel=g('loc-cat-sel');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">カテゴリを選択</option>'+
+    S.locCategories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value=cur||'';
+  renderCatDetail();
+}
+
+async function addCategory(){
+  initLocations();
+  const name=g('loc-cat-new')?.value.trim();
+  if(!name){alert('カテゴリ名を入力してください');return;}
+  if(S.locCategories.find(c=>c.name===name)){alert('同じ名前のカテゴリが既にあります');return;}
+  const cat={id:uid(),name,places:[]};
+  S.locCategories.push(cat);
+  svS();
+  g('loc-cat-new').value='';
+  refreshCatSel();
+  g('loc-cat-sel').value=cat.id;
+  renderCatDetail();
+  await saveCategoriesToGas();
+  addEditLog('カテゴリ追加',name);
+}
+
+async function delCategory(cid){
+  if(!confirm('カテゴリを削除しますか？\n紐づけている案件からも削除されます。'))return;
+  initLocations();
+  const cat=S.locCategories.find(c=>c.id===cid);
+  S.locCategories=S.locCategories.filter(c=>c.id!==cid);
+  // 案件紐づけからも削除
+  Object.keys(S.projCatLinks).forEach(pid=>{
+    S.projCatLinks[pid]=(S.projCatLinks[pid]||[]).filter(id=>id!==cid);
+  });
+  svS();refreshCatSel();
+  await saveCategoriesToGas();
+  if(cat) addEditLog('カテゴリ削除',cat.name);
+}
+
+function renderCatDetail(){
+  initLocations();
+  const cid=g('loc-cat-sel')?.value;
+  const el=g('loc-cat-detail');
+  const addArea=g('loc-cat-add-area');
+  if(!el) return;
+  if(!cid){el.innerHTML='';if(addArea)addArea.style.display='none';return;}
+  const cat=S.locCategories.find(c=>c.id===cid);
+  if(!cat){el.innerHTML='';return;}
+  if(addArea) addArea.style.display='block';
+  // カテゴリ削除ボタン＋場所一覧
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:600">📂 ${cat.name}（${cat.places.length}件）</span>
+      <button class="btn btn-red btn-sm" onclick="delCategory('${cat.id}')"><i class="ti ti-trash"></i>カテゴリ削除</button>
+    </div>`+
+    (cat.places.length?cat.places.map(p=>`
+      <div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;font-size:13px">${p.name}</span>
+        <button class="btn btn-red btn-sm" onclick="delPlace('${cid}','${p.id}')"><i class="ti ti-trash"></i>削除</button>
+      </div>`).join('')
+    :'<div style="font-size:12px;color:var(--text3);padding:6px 0">場所が未登録です</div>');
+}
+
+async function addPlaces(){
+  initLocations();
+  const cid=g('loc-cat-sel')?.value;
+  const raw=g('loc-place-input')?.value||'';
+  if(!cid){alert('カテゴリを選択してください');return;}
+  const names=raw.split(/[,、\n]/).map(s=>s.trim()).filter(Boolean);
+  if(!names.length){alert('場所名を入力してください');return;}
+  const cat=S.locCategories.find(c=>c.id===cid);
+  if(!cat) return;
+  let added=0;
+  names.forEach(name=>{
+    if(!cat.places.find(p=>p.name===name)){
+      cat.places.push({id:uid(),name});
+      added++;
+    }
+  });
+  svS();
+  g('loc-place-input').value='';
+  renderCatDetail();
+  await saveCategoriesToGas();
+  addEditLog('場所一括追加',cat.name+'：'+added+'件追加');
+  alert(`✅ ${added}件の場所を追加しました`);
+}
+
+async function delPlace(cid,pid){
+  if(!confirm('削除しますか？'))return;
+  initLocations();
+  const cat=S.locCategories.find(c=>c.id===cid);
+  if(!cat) return;
+  cat.places=cat.places.filter(p=>p.id!==pid);
+  svS();renderCatDetail();
+  await saveCategoriesToGas();
+}
+
+/* --- 案件紐づけ --- */
+function refreshProjCatSel(){
   initLocations();
   const sel=g('loc-proj-sel');
   if(!sel) return;
-  const cur=sel.value;
   sel.innerHTML='<option value="">案件を選択してください</option>'+
     S.projs.map(p=>`<option value="${p.id}">${p.n}</option>`).join('');
-  if(cur) sel.value=cur;
-  renderLocList();
+  renderProjCatLink();
 }
+function refreshLocProjSel(){ refreshCatSel(); } // 後方互換
 
-// 管理者設定：場所一覧を描画
-function renderLocList(){
+function renderProjCatLink(){
   initLocations();
   const pid=g('loc-proj-sel')?.value;
-  const el=g('loc-list');
+  const el=g('loc-proj-cat-list');
   if(!el) return;
   if(!pid){el.innerHTML='<div style="font-size:12px;color:var(--text3)">案件を選択してください</div>';return;}
-  const locs=(S.locations[pid]||[]);
-  if(!locs.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">場所が登録されていません</div>';return;}
-  el.innerHTML=locs.map(l=>`
-    <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:13px">${l.name}</span>
-      <button class="btn btn-red btn-sm" onclick="delLocation('${pid}','${l.id}')"><i class="ti ti-trash"></i>削除</button>
-    </div>`).join('');
+  if(!S.locCategories.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">カテゴリが未登録です。先にカテゴリを作成してください。</div>';return;}
+  const linked=S.projCatLinks[pid]||[];
+  el.innerHTML='<div style="font-size:12px;color:var(--text2);margin-bottom:8px">使用するカテゴリをON/OFFしてください</div>'+
+    S.locCategories.map(c=>{
+      const on=linked.includes(c.id);
+      return `<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;font-size:13px">${c.name}（${c.places.length}件）</span>
+        <button class="btn btn-sm ${on?'btn-green':'btn-ghost'}" onclick="toggleProjCat('${pid}','${c.id}')">
+          ${on?'✅ ON':'OFF'}
+        </button>
+      </div>`;
+    }).join('');
 }
 
-// 管理者設定：場所を追加
-async function addLocation(){
+async function toggleProjCat(pid,cid){
   initLocations();
-  const pid=g('loc-proj-sel')?.value;
-  const name=g('loc-new-name')?.value.trim();
-  if(!pid){alert('案件を選択してください');return;}
-  if(!name){alert('場所名を入力してください');return;}
-  if(!S.locations[pid]) S.locations[pid]=[];
-  const newLoc={id:uid(),name};
-  S.locations[pid].push(newLoc);
+  if(!S.projCatLinks[pid]) S.projCatLinks[pid]=[];
+  const idx=S.projCatLinks[pid].indexOf(cid);
+  if(idx>=0) S.projCatLinks[pid].splice(idx,1);
+  else S.projCatLinks[pid].push(cid);
   svS();
-  g('loc-new-name').value='';
-  renderLocList();
-  // GASにも保存
-  try{ await gasGet({action:'saveLocations',pid,locsJson:JSON.stringify(S.locations[pid])}); }catch(e){}
-  addEditLog('作業場所追加',S.projs.find(p=>p.id===pid)?.n+'：'+name);
+  renderProjCatLink();
+  await saveCategoriesToGas();
 }
 
-// 管理者設定：場所を削除
-async function delLocation(pid,lid){
-  if(!confirm('削除しますか？'))return;
-  initLocations();
-  S.locations[pid]=(S.locations[pid]||[]).filter(l=>l.id!==lid);
-  svS();renderLocList();
-  try{ await gasGet({action:'saveLocations',pid,locsJson:JSON.stringify(S.locations[pid])}); }catch(e){}
+/* --- GAS保存・取得 --- */
+async function saveCategoriesToGas(){
+  if(!S.gas) return;
+  try{
+    await gasGet({action:'saveLocations',
+      catsJson:encodeURIComponent(JSON.stringify(S.locCategories)),
+      linksJson:encodeURIComponent(JSON.stringify(S.projCatLinks))
+    });
+  }catch(e){}
 }
 
-// 打刻パネル：案件の作業場所一覧を表示
+async function syncLocationsFromGas(){
+  if(!S.gas) return;
+  try{
+    const data=await gasGet({action:'getLocations'});
+    if(data){
+      initLocations();
+      if(data.categories) S.locCategories=data.categories;
+      if(data.links) S.projCatLinks=data.links;
+      svS();
+    }
+  }catch(e){}
+}
+
+/* --- 打刻パネル：案件の作業場所一覧を表示 --- */
 function showLocationPanel(proj){
   initLocations();
-  const locs=S.locations[proj.id]||[];
+  const linkedCats=(S.projCatLinks[proj.id]||[])
+    .map(cid=>S.locCategories.find(c=>c.id===cid))
+    .filter(Boolean);
+  const allPlaces=linkedCats.flatMap(c=>c.places.map(p=>({...p,catName:c.name})));
   const area=g('w-location-area');
   const listEl=g('w-location-list');
-  if(!locs.length||!area||!listEl){if(area)area.style.display='none';return;}
+  if(!allPlaces.length||!area||!listEl){if(area)area.style.display='none';return;}
   area.style.display='block';
-  listEl.innerHTML=locs.map(l=>`
-    <button class="loc-chip" id="loc-${l.id}" onclick="toggleLocation('${l.id}')"
-      style="padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer">
-      ${l.name}
-    </button>`).join('');
+  // カテゴリ名でグループ表示
+  listEl.innerHTML=linkedCats.map(c=>`
+    <div style="width:100%;font-size:11px;color:var(--text2);margin:4px 0 2px;font-weight:600">${c.name}</div>`+
+    c.places.map(p=>`
+    <button id="loc-${p.id}" onclick="toggleLocation('${p.id}')"
+      style="padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;margin:2px">
+      ${p.name}
+    </button>`).join('')).join('');
 }
 
-// 打刻パネル：場所の選択トグル
+/* --- 場所の選択トグル --- */
 function toggleLocation(lid){
   const btn=g('loc-'+lid);
   if(!btn) return;
   const selected=btn.getAttribute('data-selected')==='1';
-  if(selected){
-    btn.setAttribute('data-selected','0');
-    btn.style.background='var(--bg)';
-    btn.style.borderColor='var(--border)';
-    btn.style.color='var(--text1)';
-    btn.style.fontWeight='normal';
-  } else {
-    btn.setAttribute('data-selected','1');
-    btn.style.background='var(--green)';
-    btn.style.borderColor='var(--green)';
-    btn.style.color='#fff';
-    btn.style.fontWeight='600';
-  }
+  btn.setAttribute('data-selected',selected?'0':'1');
+  btn.style.background=selected?'var(--bg)':'var(--green)';
+  btn.style.borderColor=selected?'var(--border)':'var(--green)';
+  btn.style.color=selected?'var(--text1)':'#fff';
+  btn.style.fontWeight=selected?'normal':'600';
 }
 
-// 打刻パネル：選択中の作業場所名を取得
+/* --- 選択中の作業場所名を取得 --- */
 function getSelectedLocations(proj){
   initLocations();
-  const locs=S.locations[proj?.id]||[];
+  const linkedCats=(S.projCatLinks[proj?.id]||[])
+    .map(cid=>S.locCategories.find(c=>c.id===cid)).filter(Boolean);
+  const allPlaces=linkedCats.flatMap(c=>c.places);
   return locs.filter(l=>{
     const btn=g('loc-'+l.id);
     return btn && btn.getAttribute('data-selected')==='1';
