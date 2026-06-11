@@ -1369,7 +1369,8 @@ async function syncLocationsFromGas(){
 /* --- 打刻パネル：案件の作業場所一覧を表示 --- */
 function showLocationPanel(proj){
   initLocations();
-  const linkedCats=(S.projCatLinks[proj.id]||[])
+  const pid=String(proj.id); // 型の不一致を防ぐ
+  const linkedCats=(S.projCatLinks[pid]||[])
     .map(cid=>S.locCategories.find(c=>c.id===cid))
     .filter(Boolean);
   const allPlaces=linkedCats.flatMap(c=>c.places.map(p=>({...p,catName:c.name})));
@@ -1402,7 +1403,7 @@ function toggleLocation(lid){
 /* --- 選択中の作業場所名を取得 --- */
 function getSelectedLocations(proj){
   initLocations();
-  const linkedCats=(S.projCatLinks[proj?.id]||[])
+  const linkedCats=(S.projCatLinks[String(proj?.id)]||[])
     .map(cid=>S.locCategories.find(c=>c.id===cid)).filter(Boolean);
   const allPlaces=linkedCats.flatMap(c=>c.places);
   return allPlaces.filter(l=>{
@@ -1412,19 +1413,6 @@ function getSelectedLocations(proj){
 }
 
 // GASから作業場所を取得
-async function syncLocationsFromGas(){
-  if(!S.gas) return;
-  try{
-    const data=await gasGet({action:'getLocations'});
-    if(data && typeof data==='object'){
-      initLocations();
-      if(data.categories) S.locCategories=data.categories;
-      if(data.links) S.projCatLinks=data.links;
-      svS();
-    }
-  }catch(e){}
-}
-
 /* ===== 打刻修正申請 ===== */
 function openRequestModal(){
   const today=new Date().toISOString().split('T')[0];
