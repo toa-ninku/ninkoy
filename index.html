@@ -1357,14 +1357,26 @@ async function saveCategoriesToGas(){
 async function syncLocationsFromGas(){
   if(!S.gas) return;
   try{
-    const data=await gasGet({action:'getLocations'});
-    if(data){
+    const base=S.gas.split('?')[0];
+    const res=await fetch(base+'?action=getLocations',{method:'GET',redirect:'follow'});
+    const data=await res.json();
+    console.log('GAS locations response:', JSON.stringify(data));
+    if(data && typeof data==='object'){
       initLocations();
-      if(data.categories) S.locCategories=data.categories;
-      if(data.links) S.projCatLinks=data.links;
+      if(Array.isArray(data.categories) && data.categories.length){
+        S.locCategories=data.categories;
+      }
+      if(data.links && typeof data.links==='object'){
+        // 既存データと完全に置き換え（マージではなく上書き）
+        S.projCatLinks={};
+        Object.keys(data.links).forEach(k=>{
+          S.projCatLinks[String(k)]=data.links[k];
+        });
+      }
       svS();
+      console.log('projCatLinks after sync:', JSON.stringify(S.projCatLinks));
     }
-  }catch(e){}
+  }catch(e){console.error('syncLocations error:',e);}
 }
 
 /* --- 打刻パネル：案件の作業場所一覧を表示 --- */
