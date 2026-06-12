@@ -235,6 +235,7 @@ lbl:first-of-type{margin-top:0}
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn btn-ghost btn-sm" style="flex:1;margin:0;font-size:12px" onclick="enterProxy()"><i class="ti ti-replace" aria-hidden="true"></i>代理打刻</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1;margin:0;font-size:12px" onclick="goToHist()"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴</button>
     </div>
     <div class="card">
       <div class="ctitle"><i class="ti ti-qrcode" aria-hidden="true"></i>現場QRをスキャン</div>
@@ -445,6 +446,12 @@ lbl:first-of-type{margin-top:0}
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <select id="rf-p" style="flex:1;font-size:13px" onchange="renderRecs()"><option value="">すべての案件</option></select>
         <select id="rf-c" style="flex:1;font-size:13px" onchange="renderRecs()"><option value="">すべての会社</option></select>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+        <input type="date" id="rf-from" style="flex:1;font-size:13px" onchange="renderRecs()">
+        <span style="font-size:12px;color:var(--text2)">〜</span>
+        <input type="date" id="rf-to" style="flex:1;font-size:13px" onchange="renderRecs()">
+        <button class="btn btn-ghost btn-sm" style="margin:0;font-size:11px" onclick="clearDateFilter()">クリア</button>
       </div>
       <div class="card"><div id="rec-list"><div class="empty">データなし</div></div></div>
     </div>
@@ -1546,6 +1553,10 @@ function cancelReset(){
 }
 
 /* ===== ナビ ===== */
+function goToHist(){
+  const btn=g('worker-mode').querySelectorAll('.nv')[1]; // 履歴タブボタン
+  wNav('whist',btn);
+}
 function wNav(p,btn){
   if(p==='whist') renderWHist();
   g('worker-mode').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
@@ -2301,11 +2312,37 @@ function showQR(proj){
 function dlQR(){const a=document.createElement('a');a.download=(curQR?.n||'qr')+'.png';a.href=g('qr-cvs').toDataURL();a.click();}
 
 /* ===== 履歴 ===== */
+function clearDateFilter(){
+  const f=g('rf-from'),t=g('rf-to');
+  if(f)f.value='';if(t)t.value='';
+  renderRecs();
+}
 function renderRecs(){
   const fp=g('rf-p')?.value||'',fc=g('rf-c')?.value||'';
-  const rs=S.recs.filter(r=>(!fp||r.pid===fp)&&(!fc||r.cid===fc));
-  const el=g('rec-list');if(!rs.length){el.innerHTML='<div class="empty">データなし</div>';return;}
-  el.innerHTML=rs.slice(0,80).map(r=>`<div class="row"><div style="flex:1"><div style="font-size:13px;font-weight:600">${r.wn}${r.proxy?'<span class="bdg bdg-proxy" style="margin-left:4px;font-size:10px">代理</span>':''}</div><div><span class="bdg bdg-co" style="font-size:10px">${r.cn}</span></div><div style="font-size:11px;color:var(--text2)">${r.pn} / ${r.date} ${r.time}</div></div><span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span></div>`).join('');
+  const ffrom=g('rf-from')?.value||'',fto=g('rf-to')?.value||'';
+  const rs=S.recs.filter(r=>{
+    if(fp&&r.pid!==fp) return false;
+    if(fc&&r.cid!==fc) return false;
+    if(ffrom||fto){
+      // 日付比較（yyyy/MM/dd → yyyy-MM-dd に変換して比較）
+      const rd=(r.date||'').replace(/\//g,'-');
+      if(ffrom&&rd<ffrom) return false;
+      if(fto&&rd>fto) return false;
+    }
+    return true;
+  });
+  const el=g('rec-list');
+  if(!rs.length){el.innerHTML='<div class="empty">データなし</div>';return;}
+  el.innerHTML=rs.slice(0,200).map(r=>`
+    <div class="row">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${r.wn}${r.proxy?'<span class="bdg bdg-proxy" style="margin-left:4px;font-size:10px">代理</span>':''}
+        </div>
+        <div><span class="bdg bdg-co" style="font-size:10px">${r.cn}</span></div>
+        <div style="font-size:11px;color:var(--text2)">${r.pn} / ${r.date} ${r.time}${r.note?' / '+r.note:''}</div>
+      </div>
+      <span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span>
+    </div>`).join('');
 }
 function renderFilters(){
   const rp=g('rf-p'),rc=g('rf-c');if(!rp||!rc)return;
