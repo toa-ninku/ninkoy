@@ -2334,13 +2334,26 @@ function clearDateFilter(){
 function renderRecs(){
   const fp=g('rf-p')?.value||'',fc=g('rf-c')?.value||'';
   const ffrom=g('rf-from')?.value||'',fto=g('rf-to')?.value||'';
+  // 日付をyyyy-MM-dd形式に統一する関数
+  const toYMD=dateStr=>{
+    if(!dateStr) return '';
+    const d=new Date(dateStr);
+    if(!isNaN(d.getTime())){
+      // Dateオブジェクトとして解析できる場合
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      const day=String(d.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    }
+    // yyyy/MM/dd や yyyy-MM-dd 形式の場合
+    return String(dateStr).replace(/\//g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/,
+      (_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+  };
   const rs=S.recs.filter(r=>{
     if(fp&&r.pid!==fp) return false;
     if(fc&&r.cid!==fc) return false;
     if(ffrom||fto){
-      // 日付を統一フォーマット（yyyy-MM-dd）に変換して比較
-      const rd=(r.date||'').replace(/\//g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/,
-        (_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+      const rd=toYMD(r.date);
       const dfrom=ffrom||'0000-00-00';
       const dto=fto||'9999-99-99';
       if(rd<dfrom||rd>dto) return false;
