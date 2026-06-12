@@ -203,7 +203,7 @@ lbl:first-of-type{margin-top:0}
       <button class="btn btn-ghost" id="fs-cam-stop" style="display:none" onclick="fsStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
-      <div class="role-card rc-blue" onclick="enterMgrLogin()" style="margin:0;margin-bottom:10px">
+      <div id="mgr-role-btn" class="role-card rc-blue" onclick="enterMgrLogin()" style="display:none;margin:0;margin-bottom:10px">
         <div class="rc-icon">🛡️</div>
         <div class="rc-name">管理者として利用</div>
         <div class="rc-desc">案件・作業員の管理、打刻の確認・修正</div>
@@ -823,8 +823,9 @@ function init(){
   // URLに管理者キーが含まれるか判定
   const params = new URLSearchParams(window.location.search);
   isSuperUrlMode = params.get('admin') === ADMIN_URL_KEY;
-  // 管理者タブの表示制御
+  // 管理者タブ・管理者ボタンの表示制御（管理者専用URLのみ）
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
+  g('mgr-role-btn').style.display = isSuperUrlMode ? '' : 'none';
   // localStorage が使えるか確認
   try{
     localStorage.setItem('ca6test','1');
