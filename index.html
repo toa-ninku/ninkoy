@@ -318,6 +318,12 @@ lbl:first-of-type{margin-top:0}
         <div style="font-size:11px;color:var(--text2);margin-top:4px">✅ 打刻と同時に作業員マスタに自動登録されます</div>
       </div>
 
+      <!-- 作業場所選択（登録されている場合のみ表示） -->
+      <div id="p-location-area" style="display:none;margin-top:12px;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="ti ti-building"></i> 作業場所を選択（複数可）</div>
+        <div id="p-location-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
         <button class="btn btn-green btn-xl" onclick="pStamp('in')"><i class="ti ti-login" aria-hidden="true"></i>出勤</button>
         <button class="btn btn-red btn-xl" onclick="pStamp('out')"><i class="ti ti-logout" aria-hidden="true"></i>退勤</button>
@@ -1837,8 +1843,10 @@ let pGasWorkers=[];
 async function pShowPanel(proj){
   pSP=proj;g('p-pname').textContent=proj.n;g('p-psub').textContent=proj.addr||'';
   g('p-panel').style.display='block';g('p-qmsg').textContent='✅ QR読み取り成功';
-  // GASから作業員一覧を取得してプルダウンを更新
-  await pLoadWorkers();
+  g('p-location-area').style.display='none';
+  // GASから作業員一覧と作業場所を並行取得
+  await Promise.all([pLoadWorkers(), syncLocationsFromGas()]);
+  pShowLocationPanel(proj);
 }
 
 async function pLoadWorkers(){
@@ -1904,7 +1912,46 @@ function pToggleManual(){
   }
 }
 
-function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';pGasWorkers=[];}
+function pShowLocationPanel(proj){
+  initLocations();
+  const pid=String(proj.id);
+  const linkedCats=(S.projCatLinks[pid]||[])
+    .map(cid=>S.locCategories.find(c=>c.id===cid)).filter(Boolean);
+  const allPlaces=linkedCats.flatMap(c=>c.places.map(p=>({...p,catName:c.name})));
+  const area=g('p-location-area');
+  const listEl=g('p-location-list');
+  if(!allPlaces.length||!area||!listEl){if(area)area.style.display='none';return;}
+  area.style.display='block';
+  listEl.innerHTML=linkedCats.map(c=>`
+    <div style="width:100%;font-size:11px;color:var(--text2);margin:4px 0 2px;font-weight:600">${c.name}</div>`+
+    c.places.map(p=>`
+    <button id="ploc-${p.id}" onclick="togglePLocation('${p.id}')"
+      style="padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;margin:2px">
+      ${p.name}
+    </button>`).join('')).join('');
+}
+function togglePLocation(lid){
+  const btn=g('ploc-'+lid);
+  if(!btn) return;
+  const selected=btn.getAttribute('data-selected')==='1';
+  btn.setAttribute('data-selected',selected?'0':'1');
+  btn.style.background=selected?'var(--bg)':'var(--orange)';
+  btn.style.borderColor=selected?'var(--border)':'var(--orange)';
+  btn.style.color=selected?'var(--text1)':'#fff';
+  btn.style.fontWeight=selected?'normal':'600';
+}
+function getPSelectedLocations(proj){
+  initLocations();
+  const pid=String(proj?.id);
+  const linkedCats=(S.projCatLinks[pid]||[])
+    .map(cid=>S.locCategories.find(c=>c.id===cid)).filter(Boolean);
+  const allPlaces=linkedCats.flatMap(c=>c.places);
+  return allPlaces.filter(l=>{
+    const btn=g('ploc-'+l.id);
+    return btn && btn.getAttribute('data-selected')==='1';
+  }).map(l=>l.name);
+}
+function pCancel(){pSP=null;g('p-panel').style.display='none';g('p-qmsg').textContent='';pGasWorkers=[];g('p-location-area').style.display='none';}
 async function pStamp(type){
   if(!pSP)return;
   const wVal=g('p-w').value;
@@ -1941,7 +1988,9 @@ async function pStamp(type){
       if(!w){alert('作業員が見つかりません');return;}
     }
   }
-  doStamp(pSP,w,co,type,true,'代理打刻');pCancel();
+  const selectedLocs=getPSelectedLocations(pSP);
+  const locNote=selectedLocs.length?'作業場所:'+selectedLocs.join('・'):'';
+  doStamp(pSP,w,co,type,true,locNote||'代理打刻');pCancel();
 }
 
 /* ===== 管理者カメラ ===== */
