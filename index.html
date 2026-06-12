@@ -203,10 +203,7 @@ lbl:first-of-type{margin-top:0}
       <button class="btn btn-ghost" id="fs-cam-stop" style="display:none" onclick="fsStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
-      <!-- 端末登録済みの場合のみ表示 -->
-      <div id="top-hist-btn" style="display:none;margin-bottom:8px">
-        <button class="btn btn-ghost" onclick="goToHistFromTop()" style="width:100%;font-size:13px"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴を確認する</button>
-      </div>
+      <button class="btn btn-ghost" onclick="goToHistFromTop()" style="width:100%;font-size:13px;margin-bottom:8px"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴</button>
       <div id="mgr-role-btn" class="role-card rc-blue" onclick="enterMgrLogin()" style="display:none;margin:0;margin-bottom:10px">
         <div class="rc-icon">🛡️</div>
         <div class="rc-name">管理者として利用</div>
@@ -843,8 +840,7 @@ function init(){
   // 管理者タブ・管理者ボタンの表示制御（管理者専用URLのみ）
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
   g('mgr-role-btn').style.display = isSuperUrlMode ? '' : 'none';
-  // 端末登録済みの場合は打刻履歴ボタンを表示
-  if(g('top-hist-btn')) g('top-hist-btn').style.display = D.ok ? 'block' : 'none';
+
   // localStorage が使えるか確認
   try{
     localStorage.setItem('ca6test','1');
@@ -1564,8 +1560,11 @@ function goToHist(){
   wNav('whist',btn);
 }
 function goToHistFromTop(){
-  // トップ画面から作業員モードの履歴タブに直接移動
-  if(!D.ok){alert('端末登録が必要です');return;}
+  // 端末登録済みなら作業員モードの履歴タブへ、未登録なら登録を促す
+  if(!D.ok){
+    alert('打刻履歴を見るには端末登録が必要です。\nQRコードをスキャンして登録してください。');
+    return;
+  }
   enterWorker();
   setTimeout(()=>{
     const btn=g('worker-mode').querySelectorAll('.nv')[1];
