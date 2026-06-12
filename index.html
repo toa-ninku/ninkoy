@@ -1347,11 +1347,15 @@ async function toggleProjCat(pid,cid){
 async function saveCategoriesToGas(){
   if(!S.gas) return;
   try{
-    await gasGet({action:'saveLocations',
-      catsJson:encodeURIComponent(JSON.stringify(S.locCategories)),
-      linksJson:encodeURIComponent(JSON.stringify(S.projCatLinks))
-    });
-  }catch(e){}
+    // gasGet内部でencodeURIComponentするため、ここでは生のJSON文字列を渡す
+    const base=S.gas.split('?')[0];
+    const catsJson=JSON.stringify(S.locCategories);
+    const linksJson=JSON.stringify(S.projCatLinks);
+    const qs='action=saveLocations&catsJson='+encodeURIComponent(catsJson)+'&linksJson='+encodeURIComponent(linksJson);
+    const res=await fetch(base+'?'+qs,{method:'GET',redirect:'follow'});
+    const result=await res.json();
+    console.log('saveLocations result:',result);
+  }catch(e){console.error('saveCategoriesToGas error:',e);}
 }
 
 async function syncLocationsFromGas(){
