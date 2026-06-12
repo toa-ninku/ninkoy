@@ -203,6 +203,10 @@ lbl:first-of-type{margin-top:0}
       <button class="btn btn-ghost" id="fs-cam-stop" style="display:none" onclick="fsStopCam()"><i class="ti ti-camera-off" aria-hidden="true"></i>カメラを停止</button>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
+      <!-- 端末登録済みの場合のみ表示 -->
+      <div id="top-hist-btn" style="display:none;margin-bottom:8px">
+        <button class="btn btn-ghost" onclick="goToHistFromTop()" style="width:100%;font-size:13px"><i class="ti ti-clock-hour-4" aria-hidden="true"></i>打刻履歴を確認する</button>
+      </div>
       <div id="mgr-role-btn" class="role-card rc-blue" onclick="enterMgrLogin()" style="display:none;margin:0;margin-bottom:10px">
         <div class="rc-icon">🛡️</div>
         <div class="rc-name">管理者として利用</div>
@@ -839,6 +843,8 @@ function init(){
   // 管理者タブ・管理者ボタンの表示制御（管理者専用URLのみ）
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
   g('mgr-role-btn').style.display = isSuperUrlMode ? '' : 'none';
+  // 端末登録済みの場合は打刻履歴ボタンを表示
+  if(g('top-hist-btn')) g('top-hist-btn').style.display = D.ok ? 'block' : 'none';
   // localStorage が使えるか確認
   try{
     localStorage.setItem('ca6test','1');
@@ -1554,8 +1560,17 @@ function cancelReset(){
 
 /* ===== ナビ ===== */
 function goToHist(){
-  const btn=g('worker-mode').querySelectorAll('.nv')[1]; // 履歴タブボタン
+  const btn=g('worker-mode').querySelectorAll('.nv')[1];
   wNav('whist',btn);
+}
+function goToHistFromTop(){
+  // トップ画面から作業員モードの履歴タブに直接移動
+  if(!D.ok){alert('端末登録が必要です');return;}
+  enterWorker();
+  setTimeout(()=>{
+    const btn=g('worker-mode').querySelectorAll('.nv')[1];
+    wNav('whist',btn);
+  },100);
 }
 function wNav(p,btn){
   if(p==='whist') renderWHist();
@@ -2324,10 +2339,12 @@ function renderRecs(){
     if(fp&&r.pid!==fp) return false;
     if(fc&&r.cid!==fc) return false;
     if(ffrom||fto){
-      // 日付比較（yyyy/MM/dd → yyyy-MM-dd に変換して比較）
-      const rd=(r.date||'').replace(/\//g,'-');
-      if(ffrom&&rd<ffrom) return false;
-      if(fto&&rd>fto) return false;
+      // 日付を統一フォーマット（yyyy-MM-dd）に変換して比較
+      const rd=(r.date||'').replace(/\//g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/,
+        (_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+      const dfrom=ffrom||'0000-00-00';
+      const dto=fto||'9999-99-99';
+      if(rd<dfrom||rd>dto) return false;
     }
     return true;
   });
