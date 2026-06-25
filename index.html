@@ -1168,9 +1168,7 @@ function checkTodayStamp(){
     return mine && todayDate && validDate;
   });
   console.log('today recs:', todayRecs.length, todayRecs.map(r=>r.type+':'+r.pn));
-  // デバッグ用アラート（確認後削除）
-  const debugInfo='今日:'+today+'\n自分:'+D.wn+'\n総打刻数:'+S.recs.length+'\n当日打刻:'+todayRecs.length+'\n'+(todayRecs.length?todayRecs.map(r=>r.type+':'+r.pn+' date:'+r.date).join('\n'):'なし');
-  alert(debugInfo);
+
   // 出勤済み案件を取得（pidを文字列で統一）
   const checkedIn={};
   const checkedOut={};
@@ -1200,27 +1198,29 @@ function showCheckoutPanel(pendingRecs){
   if(!el) return;
   el.innerHTML=pendingRecs.map(r=>{
     const proj=S.projs.find(p=>String(p.id)===String(r.pid))||{n:r.pn,id:r.pid};
+    // 時刻フォーマット
+    const timeStr=String(r.time||'').substring(0,5);
     return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">${proj.n}</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">出勤：${r.time}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">出勤：${timeStr}</div>
       <button class="btn btn-red btn-xl" style="width:100%" onclick="quickCheckout('${proj.id}','${proj.n}')">
         <i class="ti ti-logout"></i>退勤する
       </button>
     </div>`;
   }).join('');
-  // QRスキャンエリアを非表示・退勤パネルを表示
-  g('w-checkout-panel').style.display='block';
-  g('pg-wscan').querySelectorAll('.card').forEach(c=>{
-    if(c.id!=='w-checkout-panel') c.style.display='none';
+  // スキャンタブに切替してから退勤パネルだけ表示
+  const navBtn=g('worker-mode').querySelector('.nv');
+  // タブのアクティブ状態を更新
+  g('worker-mode').querySelectorAll('.nv').forEach(b=>b.classList.remove('on'));
+  if(navBtn) navBtn.classList.add('on');
+  // 全ページ非表示→スキャンページのみ表示
+  g('worker-mode').querySelectorAll('.pg').forEach(p=>p.style.display='none');
+  g('pg-wscan').style.display='block';
+  // スキャンページ内のカードを全て非表示→退勤パネルのみ表示
+  g('pg-wscan').querySelectorAll(':scope > .card, :scope > div').forEach(c=>{
+    c.style.display='none';
   });
-  g('w-checkout-panel').style.display='';
-  wNav('wscan',g('worker-mode').querySelector('.nv'));
-  // QRスキャンカードを隠して退勤パネルのみ表示
-  setTimeout(()=>{
-    const cards=g('pg-wscan').querySelectorAll('.card');
-    cards.forEach(c=>{ if(c.id!=='w-checkout-panel') c.style.display='none'; });
-    g('w-checkout-panel').style.display='block';
-  },50);
+  g('w-checkout-panel').style.display='block';
 }
 function showQRScan(){
   // QRスキャン画面に戻す
