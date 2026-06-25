@@ -1702,11 +1702,41 @@ function mNav(p,btn){
   if(p==='sum')renderSum();if(p==='edit')refEdit();if(p==='cfg')refCfg();
 }
 function refMgr(){renderProjs();renderRecs();renderFilters();renderSum();}
-function renderWHist(){
+async function renderWHist(){
   const el=g('w-hist');
   if(!el) return;
+  el.innerHTML='<div class="empty">読み込み中...</div>';
+  // GASから自分の打刻履歴を取得してlocalStorageと同期
+  if(S.gas && D.wn){
+    try{
+      const base=S.gas.split('?')[0];
+      const res=await fetch(base+'?action=getStamps',{method:'GET',redirect:'follow'});
+      const data=await res.json();
+      if(Array.isArray(data) && data.length){
+        const existingTs=new Set(S.recs.map(r=>r.ts));
+        let added=0;
+        data.forEach(r=>{
+          if(!existingTs.has(r.ts)){
+            const co=S.co.find(c=>c.n===r.cn)||{id:r.cn,n:r.cn,ws:[]};
+            const w=co.ws?.find(x=>x.n===r.wn)||{id:r.wn,n:r.wn};
+            const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
+            S.recs.push({
+              id:uid(),pid:proj.id,pn:r.pn,
+              wid:w.id,wn:r.wn,cid:co.id,cn:r.cn,
+              type:r.type,date:r.date,time:r.time,
+              ts:r.ts,proxy:r.proxy||false,note:r.note||''
+            });
+            added++;
+          }
+        });
+        if(added>0) svS();
+      }
+    }catch(e){ console.log('GAS履歴取得失敗:', e); }
+  }
   // 自分の打刻のみ表示
-  const myRecs=S.recs.filter(r=>r.wid===D.wid||r.wn===D.wn).slice(0,30);
+  const myRecs=S.recs.filter(r=>r.wid===D.wid||r.wn===D.wn)
+    .sort((a,b)=>new Date(b.ts||0)-new Date(a.ts||0))
+    .slice(0,50);
   if(!myRecs.length){el.innerHTML='<div class="empty">打刻履歴なし</div>';return;}
   el.innerHTML=myRecs.map(r=>`
     <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
@@ -2237,11 +2267,7 @@ async function sendGAS(rec){
 }
 
 /* ===== 作業員履歴 ===== */
-function renderWHist(){
-  const el=g('w-hist');const rs=S.recs.filter(r=>r.wid===D.wid).slice(0,30);
-  if(!rs.length){el.innerHTML='<div class="empty">履歴がありません</div>';return;}
-  el.innerHTML=rs.map(r=>`<div class="row"><div><div style="font-size:13px;font-weight:600">${r.pn}</div><div style="font-size:11px;color:var(--text2)">${r.date} ${r.time}</div></div><span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span></div>`).join('');
-}
+
 
 /* ===== 案件 ===== */
 /* ===== スプレッドシートから案件を読み込む ===== */
