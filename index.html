@@ -1647,11 +1647,12 @@ async function openRequestModal(){
       if(Array.isArray(data)&&data.length){
         const existingTs=new Set(S.recs.map(r=>r.ts));
         data.forEach(r=>{
-          if(!existingTs.has(r.ts)){
+          if(!existingTs.has(r.ts) && r.pn){
             const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
             S.recs.push({
               id:uid(),pid:String(proj.id),pn:r.pn,
-              wid:D.wid,wn:r.wn,cid:D.cid,cn:r.cn,
+              wid:r.wn===D.wn?D.wid:r.wn,
+              wn:r.wn,cid:r.cn,cn:r.cn,
               type:r.type,date:r.date,time:r.time,
               ts:r.ts,proxy:r.proxy||false,note:r.note||''
             });
@@ -1664,8 +1665,8 @@ async function openRequestModal(){
   // 自分の打刻履歴から案件を抽出
   const myProjs=[];
   const seen=new Set();
-  S.recs.filter(r=>r.wid===D.wid||r.wn===D.wn).forEach(r=>{
-    if(r.pn&&!seen.has(r.pn)){ seen.add(r.pn); myProjs.push({n:r.pn}); }
+  S.recs.filter(r=>(r.wid===D.wid||r.wn===D.wn)&&r.pn&&r.pn.length>1).forEach(r=>{
+    if(!seen.has(r.pn)){ seen.add(r.pn); myProjs.push({n:r.pn}); }
   });
   if(myProjs.length){
     sel.innerHTML='<option value="">選択してください</option>'+
