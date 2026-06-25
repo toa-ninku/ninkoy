@@ -1232,17 +1232,15 @@ function showCheckoutPanel(pendingRecs){
       </button>
     </div>`;
   }).join('');
-  // スキャンタブに切替してから退勤パネルだけ表示
+  // スキャンタブをアクティブにして退勤パネルだけ表示
   const navBtn=g('worker-mode').querySelector('.nv');
-  // タブのアクティブ状態を更新
   g('worker-mode').querySelectorAll('.nv').forEach(b=>b.classList.remove('on'));
   if(navBtn) navBtn.classList.add('on');
-  // 全ページ非表示→スキャンページのみ表示
-  g('worker-mode').querySelectorAll('.pg').forEach(p=>p.style.display='none');
-  g('pg-wscan').style.display='block';
-  // スキャンページ内のカードを全て非表示→退勤パネルのみ表示
-  g('pg-wscan').querySelectorAll(':scope > .card, :scope > div').forEach(c=>{
-    c.style.display='none';
+  g('worker-mode').querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  g('pg-wscan').classList.add('on');
+  // スキャンページ内の要素を非表示（退勤パネル以外）
+  g('pg-wscan').querySelectorAll(':scope > *').forEach(c=>{
+    if(c.id!=='w-checkout-panel') c.style.display='none';
   });
   g('w-checkout-panel').style.display='block';
 }
@@ -1759,17 +1757,21 @@ function goToHistFromTop(){
   }
 }
 function wNav(p,btn){
-  // 退勤パネルが表示中の場合は非表示にして元の表示に戻す
+  // 退勤パネルが表示中の場合は非表示にして元のスタイルを復元
   const cp=g('w-checkout-panel');
   if(cp && cp.style.display==='block'){
     cp.style.display='none';
     if(g('pg-wscan')){
       g('pg-wscan').querySelectorAll(':scope > *').forEach(c=>{ c.style.display=''; });
+      g('w-checkout-panel').style.display='none'; // 明示的に非表示
     }
   }
+  // ページ切り替え（.pgはclassのon/offで制御、styleは変更しない）
   g('worker-mode').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
   g('worker-mode').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
-  g('pg-'+p).classList.add('on');if(btn)btn.classList.add('on');
+  const targetPg=g('pg-'+p);
+  if(targetPg) targetPg.classList.add('on');
+  if(btn) btn.classList.add('on');
   if(p==='whist') renderWHist();
 }
 function mNav(p,btn){
