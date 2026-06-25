@@ -1189,9 +1189,22 @@ function checkTodayStamp(){
 }
 function toLocalDate(dateStr){
   if(!dateStr) return '';
-  const d=new Date(dateStr);
-  if(!isNaN(d.getTime())) return d.toLocaleDateString('ja-JP');
-  return String(dateStr).replace(/-/g,'/');
+  const s=String(dateStr);
+  // yyyy/MM/dd形式
+  if(/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) return s;
+  // yyyy-MM-dd形式
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const [y,m,d]=s.split('-');
+    return y+'/'+parseInt(m)+'/'+parseInt(d);
+  }
+  // その他（Dateオブジェクト文字列など）
+  try{
+    const d=new Date(dateStr);
+    if(!isNaN(d.getTime()) && d.getFullYear()>=1990){
+      return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+    }
+  }catch(e){}
+  return s;
 }
 function showCheckoutPanel(pendingRecs){
   const el=g('w-checkout-list');
