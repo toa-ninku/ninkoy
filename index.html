@@ -1186,6 +1186,8 @@ function checkTodayStamp(){
   console.log('pending:', pendingProjs.length);
   if(pendingProjs.length>0){
     showCheckoutPanel(pendingProjs.map(pid=>checkedIn[pid]));
+    // 17時以降は退勤忘れアラートも表示
+    checkMissedCheckout();
   } else {
     wNav('wscan',g('worker-mode').querySelector('.nv'));
     checkMissedCheckout();
@@ -1263,9 +1265,9 @@ async function quickCheckout(pid,pname){
   setTimeout(checkTodayStamp,500);
 }
 function checkMissedCheckout(){
-  // 17時以降で退勤打刻忘れがないかチェック
+  // 退勤打刻忘れチェック（時間制限なし）
   const now=new Date();
-  if(now.getHours()<17) return;
+  // if(now.getHours()<17) return; // テスト中は無効化
   const today=now.toLocaleDateString('ja-JP');
   const todayRecs=S.recs.filter(r=>(r.wid===D.wid||r.wn===D.wn)&&toLocalDate(r.date)===today);
   const inProjs=new Set(todayRecs.filter(r=>r.type==='in').map(r=>r.pid));
