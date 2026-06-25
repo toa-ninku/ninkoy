@@ -1668,16 +1668,22 @@ function goToHist(){
   wNav('whist',btn);
 }
 function goToHistFromTop(){
-  // 端末登録済みなら作業員モードの履歴タブへ、未登録なら登録を促す
-  if(!D.ok){
-    alert('打刻履歴を見るには端末登録が必要です。\nQRコードをスキャンして登録してください。');
-    return;
+  // 端末登録済み・未登録どちらでも履歴タブへ
+  if(D.ok){
+    enterWorker();
+    setTimeout(()=>{
+      const btn=g('worker-mode').querySelectorAll('.nv')[1];
+      wNav('whist',btn);
+    },100);
+  } else {
+    // 未登録でも作業員モードの履歴タブを表示（自分の履歴は空になる）
+    hideAll();g('worker-mode').style.display='block';
+    updWBanner();
+    setTimeout(()=>{
+      const btn=g('worker-mode').querySelectorAll('.nv')[1];
+      wNav('whist',btn);
+    },100);
   }
-  enterWorker();
-  setTimeout(()=>{
-    const btn=g('worker-mode').querySelectorAll('.nv')[1];
-    wNav('whist',btn);
-  },100);
 }
 function wNav(p,btn){
   if(p==='whist') renderWHist();
