@@ -1211,8 +1211,19 @@ function showCheckoutPanel(pendingRecs){
   if(!el) return;
   el.innerHTML=pendingRecs.map(r=>{
     const proj=S.projs.find(p=>String(p.id)===String(r.pid))||{n:r.pn,id:r.pid};
-    // 時刻フォーマット
-    const timeStr=String(r.time||'').substring(0,5);
+    // 時刻フォーマット（HH:mm形式に統一）
+    let timeStr=String(r.time||'');
+    if(timeStr.length>5){
+      // 長い形式の場合はDateで解析
+      try{
+        const td=new Date(r.ts||r.date);
+        if(!isNaN(td.getTime())){
+          timeStr=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
+        }
+      }catch(e){}
+    } else {
+      timeStr=timeStr.substring(0,5);
+    }
     return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">${proj.n}</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">出勤：${timeStr}</div>
@@ -1748,11 +1759,18 @@ function goToHistFromTop(){
   }
 }
 function wNav(p,btn){
-  if(p==='whist') renderWHist();
+  // 退勤パネルが表示中の場合は非表示にして元の表示に戻す
+  const cp=g('w-checkout-panel');
+  if(cp && cp.style.display==='block'){
+    cp.style.display='none';
+    if(g('pg-wscan')){
+      g('pg-wscan').querySelectorAll(':scope > *').forEach(c=>{ c.style.display=''; });
+    }
+  }
   g('worker-mode').querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
   g('worker-mode').querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
   g('pg-'+p).classList.add('on');if(btn)btn.classList.add('on');
-  if(p==='whist')renderWHist();
+  if(p==='whist') renderWHist();
 }
 function mNav(p,btn){
   if(p==='log') loadEditLog();
