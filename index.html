@@ -1168,6 +1168,9 @@ function checkTodayStamp(){
     return mine && todayDate && validDate;
   });
   console.log('today recs:', todayRecs.length, todayRecs.map(r=>r.type+':'+r.pn));
+  // デバッグ用アラート（確認後削除）
+  const debugInfo='今日:'+today+'\n自分:'+D.wn+'\n総打刻数:'+S.recs.length+'\n当日打刻:'+todayRecs.length+'\n'+(todayRecs.length?todayRecs.map(r=>r.type+':'+r.pn+' date:'+r.date).join('\n'):'なし');
+  alert(debugInfo);
   // 出勤済み案件を取得（pidを文字列で統一）
   const checkedIn={};
   const checkedOut={};
