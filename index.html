@@ -1265,14 +1265,14 @@ async function quickCheckout(pid,pname){
   setTimeout(checkTodayStamp,500);
 }
 function checkMissedCheckout(){
+  // 17時以降で退勤打刻忘れがないかチェック
   const now=new Date();
+  if(now.getHours()<17) return;
   const today=now.toLocaleDateString('ja-JP');
   const todayRecs=S.recs.filter(r=>(r.wid===D.wid||r.wn===D.wn)&&toLocalDate(r.date)===today);
   const inProjs=new Set(todayRecs.filter(r=>r.type==='in').map(r=>String(r.pid)));
   const outProjs=new Set(todayRecs.filter(r=>r.type==='out').map(r=>String(r.pid)));
   const missing=[...inProjs].filter(pid=>!outProjs.has(pid));
-  // デバッグ用
-  alert('チェック結果\n今日:'+today+'\n自分:'+D.wn+'\n総打刻:'+S.recs.length+'\n当日打刻:'+todayRecs.length+'\n出勤案件:'+inProjs.size+'\n退勤案件:'+outProjs.size+'\n未退勤:'+missing.length);
   if(missing.length>0){
     setTimeout(()=>{
       alert('退勤ボタンが押されておりません。ご確認お願いします。');
