@@ -649,6 +649,10 @@ lbl:first-of-type{margin-top:0}
   <div class="modal-box">
     <div class="ctitle"><i class="ti ti-edit"></i>打刻の修正申請</div>
     <div class="ibox" style="margin-bottom:10px">打刻忘れ・打刻間違いを管理者に申請します。承認後に打刻データが更新されます。</div>
+    <lbl>工事件名</lbl>
+    <select id="rq-proj" style="margin-bottom:8px">
+      <option value="">選択してください</option>
+    </select>
     <lbl>申請種別</lbl>
     <select id="rq-type" style="margin-bottom:8px">
       <option value="追加">打刻の追加（打刻忘れ）</option>
@@ -1630,6 +1634,21 @@ function openRequestModal(){
   const today=new Date().toISOString().split('T')[0];
   g('rq-date').value=today;
   g('rq-time').value='08:00';
+  // 案件プルダウンを初期化（自分の打刻履歴から案件を抽出）
+  const sel=g('rq-proj');
+  if(sel){
+    // 自分の打刻履歴にある案件のみ表示
+    const myProjs=[];
+    const seen=new Set();
+    S.recs.filter(r=>r.wid===D.wid||r.wn===D.wn).forEach(r=>{
+      if(r.pn&&!seen.has(r.pn)){ seen.add(r.pn); myProjs.push({id:r.pid,n:r.pn}); }
+    });
+    sel.innerHTML='<option value="">選択してください</option>'+
+      myProjs.map(p=>`<option value="${p.n}">${p.n}</option>`).join('');
+    // 現在スキャン中の案件があれば自動選択
+    if(wSP) sel.value=wSP.n;
+    else if(S.recs.length) sel.value=S.recs[0]?.pn||'';
+  }
   openM('request-modal');
 }
 async function submitRequest(){
@@ -1640,8 +1659,9 @@ async function submitRequest(){
   const reason=g('rq-reason').value.trim();
   if(!date||!time){alert('日付・時刻を入力してください');return;}
   if(!D.ok){alert('端末登録が必要です');return;}
-  // 現在QRスキャンした案件があれば使う、なければ最新の打刻から取得
-  const pn=wSP?.n||S.recs[0]?.pn||'';
+  // 工事件名をプルダウンから取得
+  const pn=g('rq-proj')?.value||wSP?.n||S.recs[0]?.pn||'';
+  if(!pn){alert('工事件名を選択してください');return;}
   try{
     await gasGet({action:'addRequest',wn:D.wn,cn:D.cn,pn,reqType,date,time,stampType,reason});
     closeM('request-modal');
