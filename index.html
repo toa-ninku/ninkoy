@@ -481,6 +481,9 @@ lbl:first-of-type{margin-top:0}
 
     <!-- 集計 -->
     <div id="mp-sum" class="pg">
+      <div style="margin-bottom:8px">
+        <button class="btn btn-ghost btn-sm" onclick="recalcSummary()" style="font-size:12px"><i class="ti ti-refresh"></i>人工集計を再計算</button>
+      </div>
       <div class="tabs">
         <button class="tab on" onclick="sSTab('proj',this)">案件別</button>
         <button class="tab" onclick="sSTab('work',this)">作業員別</button>
@@ -1675,6 +1678,18 @@ function getSelectedLocations(proj){
 }
 
 // GASから作業場所を取得
+/* ===== 人工集計再計算 ===== */
+async function recalcSummary(){
+  if(!S.gas){alert('GAS URLが設定されていません');return;}
+  try{
+    const base=S.gas.split('?')[0];
+    const res=await fetch(base+'?action=recalcSummary',{method:'GET',redirect:'follow'});
+    const data=await res.json();
+    if(data.status==='ok') alert('✅ 人工集計を再計算しました');
+    else alert('⚠ 再計算に失敗しました');
+  }catch(e){alert('⚠ エラーが発生しました: '+e.message);}
+}
+
 /* ===== 打刻修正申請 ===== */
 async function openRequestModal(){
   const today=new Date().toISOString().split('T')[0];
