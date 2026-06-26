@@ -813,59 +813,43 @@ function loadAll(){
 function svS(){try{localStorage.setItem('ca6s',JSON.stringify(S));}catch(e){}}
 function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
 
-// 異常な時刻データ（Sat D など）を強制削除して正常データに統一する
+// 打刻データを正規化・重複削除する（起動時に実行）
 function cleanAbnormalRecs(){
-  const before=S.recs.length;
-  // tsから正しい日付・時刻を復元できるものは修正、できないものは削除
-  S.recs=S.recs.filter(r=>{
-    // tsが有効なISO日時の場合、dateとtimeを正規化
+  // ① まず全データのdate/timeをtsから正規化
+  S.recs=S.recs.map(r=>{
     if(r.ts){
       const d=new Date(r.ts);
       if(!isNaN(d.getTime()) && d.getFullYear()>=1990){
-        // 正しい日付・時刻に上書き
         r.date=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
         r.time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
-        return true;
       }
     }
-    // tsがない場合はdateとtimeを確認
-    const dateOk=r.date && !/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(String(r.date));
-    const timeOk=r.time && /^\d{2}:\d{2}$/.test(String(r.time).substring(0,5));
-    return dateOk && timeOk;
+    return r;
   });
-  const removed=before-S.recs.length;
-  if(removed>0){ svS(); console.log('異常データ削除: '+removed+'件'); }
-}
-
-// localStorageの重複打刻を削除する
-function dedupeRecs(){
-  const seen=new Set();
+  // ② 異常なデータを除外
   const before=S.recs.length;
+  const seen=new Set();
   S.recs=S.recs.filter(r=>{
-    // ① 異常な日付（Sat D など1990年以前）を除外
+    // 日付が英語形式（Sat/Sun等）のものは除外
+    if(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(String(r.date||''))) return false;
+    // 時刻が異常なものは除外
+    if(!r.time||!/^\d{1,2}:\d{2}/.test(String(r.time))) return false;
+    // 1990年以前は除外
     const d=new Date(r.ts||r.date||'');
     if(!isNaN(d.getTime()) && d.getFullYear()<1990) return false;
-    // ② 正規化した日付で重複チェック
-    const dateKey=toLocalDate(r.date||r.ts||'');
-    // 時刻の正規化（HH:mm形式に統一）
-    let timeKey=(r.time||'').substring(0,5);
-    if(timeKey.length<5){
-      try{
-        const td=new Date(r.ts||'');
-        if(!isNaN(td.getTime())){
-          timeKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
-        }
-      }catch(e){}
-    }
+    // ③ 重複チェック（日付+時刻+種別+案件名+作業員名）
+    const dateKey=r.date||'';
+    const timeKey=String(r.time||'').substring(0,5);
     const key=dateKey+'_'+timeKey+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
   });
   const removed=before-S.recs.length;
-  if(removed>0){ svS(); console.log('重複・異常データ削除: '+removed+'件'); }
-  return removed;
+  if(removed>0){ svS(); console.log('データ正規化・削除: '+removed+'件'); }
 }
+
+function dedupeRecs(){ cleanAbnormalRecs(); } // 後方互換
 
 // アプリ起動時にスプレッドシートから案件を自動同期する
 async function autoSyncProjs(){
