@@ -1836,26 +1836,32 @@ async function renderWHist(){
   const el=g('w-hist');
   if(!el) return;
   el.innerHTML='<div class="empty">読み込み中...</div>';
-  // GASから自分の打刻履歴を取得してlocalStorageと同期
+
+  // GASから自分の打刻履歴を取得（重複チェックを強化）
   if(S.gas && D.wn){
     try{
       const base=S.gas.split('?')[0];
       const res=await fetch(base+'?action=getStamps',{method:'GET',redirect:'follow'});
       const data=await res.json();
       if(Array.isArray(data) && data.length){
-        const existingTs=new Set(S.recs.map(r=>r.ts));
+        // 自分のデータのみ対象
+        const myGasRecs=data.filter(r=>r.wn===D.wn);
+        // 重複チェック用キー（日付+時刻+種別+案件名）
+        const existingKeys=new Set(S.recs.map(r=>
+          toLocalDate(r.date)+'_'+(r.time||'').substring(0,5)+'_'+r.type+'_'+r.pn
+        ));
         let added=0;
-        data.forEach(r=>{
-          if(!existingTs.has(r.ts)){
-            const co=S.co.find(c=>c.n===r.cn)||{id:r.cn,n:r.cn,ws:[]};
-            const w=co.ws?.find(x=>x.n===r.wn)||{id:r.wn,n:r.wn};
+        myGasRecs.forEach(r=>{
+          const key=toLocalDate(r.date)+'_'+(r.time||'').substring(0,5)+'_'+r.type+'_'+r.pn;
+          if(!existingKeys.has(key) && r.pn){
             const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
             S.recs.push({
-              id:uid(),pid:proj.id,pn:r.pn,
-              wid:w.id,wn:r.wn,cid:co.id,cn:r.cn,
+              id:uid(),pid:String(proj.id),pn:r.pn,
+              wid:D.wid,wn:r.wn,cid:D.cid,cn:r.cn,
               type:r.type,date:r.date,time:r.time,
               ts:r.ts,proxy:r.proxy||false,note:r.note||''
             });
+            existingKeys.add(key);
             added++;
           }
         });
@@ -1863,38 +1869,111 @@ async function renderWHist(){
       }
     }catch(e){ console.log('GAS履歴取得失敗:', e); }
   }
-  // 自分の打刻のみ表示
+
+  // 1週間前の日付を計算
+  const oneWeekAgo=new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate()-7);
+  oneWeekAgo.setHours(0,0,0,0);
+
+  // 自分の打刻・1週間分のみ表示
   const myRecs=S.recs.filter(r=>{
     if(!(r.wid===D.wid||r.wn===D.wn)) return false;
-    // 異常な日付（1900年以前）を除外
     const d=new Date(r.ts||r.date);
     if(!isNaN(d.getTime()) && d.getFullYear()<1990) return false;
+    // 1週間以内のみ
+    if(!isNaN(d.getTime()) && d < oneWeekAgo) return false;
     return true;
   }).sort((a,b)=>{
     const da=new Date(a.ts||a.date+' '+(a.time||'00:00'));
     const db=new Date(b.ts||b.date+' '+(b.time||'00:00'));
     return db-da;
-  }).slice(0,50);
-  if(!myRecs.length){el.innerHTML='<div class="empty">打刻履歴なし</div>';return;}
+  });
+
   const weekdays=['日','月','火','水','木','金','土'];
   const fmtDate=dateStr=>{
     try{
       const d=new Date(dateStr);
       if(isNaN(d.getTime())) return String(dateStr);
-      const y=d.getFullYear();
-      const m=d.getMonth()+1;
-      const day=d.getDate();
-      const w=weekdays[d.getDay()];
-      return y+'.'+m+'.'+day+'('+w+')';
+      return d.getFullYear()+'.'+( d.getMonth()+1)+'.'+d.getDate()+'('+weekdays[d.getDay()]+')';
     }catch(e){return String(dateStr);}
   };
   const fmtTime=timeStr=>{
     if(!timeStr) return '';
     const t=String(timeStr);
     if(t.includes(':')) return t.substring(0,5);
+    try{
+      const d=new Date(timeStr);
+      if(!isNaN(d.getTime())) return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    }catch(e){}
     return t;
   };
-  el.innerHTML=myRecs.map(r=>`
+
+  if(!myRecs.length){
+    el.innerHTML='<div class="empty">1週間分の打刻履歴なし</div>';
+  } else {
+    el.innerHTML=myRecs.map(r=>`
+      <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${r.pn}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${fmtDate(r.date)}　${fmtTime(r.time)}</div>
+          ${r.note?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${r.note}</div>`:''}
+        </div>
+        <span class="bdg ${r.type==='in'?'bdg-in':'bdg-out'}">${r.type==='in'?'出勤':'退勤'}</span>
+      </div>`).join('');
+  }
+
+  // 期間検索エリアを追加
+  if(!g('w-hist-search')){
+    const searchDiv=document.createElement('div');
+    searchDiv.id='w-hist-search';
+    searchDiv.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+    searchDiv.innerHTML=`
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">期間を指定して検索</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <input type="date" id="w-hist-from" style="flex:1;font-size:12px">
+        <span style="font-size:11px;color:var(--text2)">〜</span>
+        <input type="date" id="w-hist-to" style="flex:1;font-size:12px">
+      </div>
+      <button class="btn btn-blue btn-sm" style="width:100%" onclick="searchWHist()">検索</button>`;
+    el.parentNode.appendChild(searchDiv);
+  }
+}
+
+function searchWHist(){
+  const from=g('w-hist-from')?.value||'';
+  const to=g('w-hist-to')?.value||'';
+  const el=g('w-hist');
+  if(!el) return;
+  const weekdays=['日','月','火','水','木','金','土'];
+  const fmtDate=dateStr=>{
+    try{
+      const d=new Date(dateStr);
+      if(isNaN(d.getTime())) return String(dateStr);
+      return d.getFullYear()+'.'+( d.getMonth()+1)+'.'+d.getDate()+'('+weekdays[d.getDay()]+')';
+    }catch(e){return String(dateStr);}
+  };
+  const fmtTime=timeStr=>{
+    if(!timeStr) return '';
+    const t=String(timeStr);
+    if(t.includes(':')) return t.substring(0,5);
+    try{
+      const d=new Date(timeStr);
+      if(!isNaN(d.getTime())) return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    }catch(e){}
+    return t;
+  };
+  const recs=S.recs.filter(r=>{
+    if(!(r.wid===D.wid||r.wn===D.wn)) return false;
+    const d=new Date(r.ts||r.date);
+    if(!isNaN(d.getTime()) && d.getFullYear()<1990) return false;
+    const rd=(r.date||'').replace(/\//g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/,
+      (_,y,m,dy)=>y+'-'+m.padStart(2,'0')+'-'+dy.padStart(2,'0'));
+    if(from && rd<from) return false;
+    if(to && rd>to) return false;
+    return true;
+  }).sort((a,b)=>new Date(b.ts||b.date)-new Date(a.ts||a.date));
+  if(!recs.length){el.innerHTML='<div class="empty">該当する打刻なし</div>';return;}
+  el.innerHTML=recs.map(r=>`
     <div class="row" style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${r.pn}</div>
