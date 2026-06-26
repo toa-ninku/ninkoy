@@ -1,6 +1,6 @@
 // Service Worker - 人工管理システム
 // バージョンを変えるだけで全端末が自動更新される
-const CACHE_VERSION = 'toa-v1';
+const CACHE_VERSION = 'toa-v2';
 const CACHE_NAME = `toa-ninku-${CACHE_VERSION}`;
 
 // キャッシュするファイル
