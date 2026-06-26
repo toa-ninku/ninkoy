@@ -815,8 +815,11 @@ function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
 
 // 打刻データを正規化・重複削除する（起動時に実行）
 function cleanAbnormalRecs(){
-  // ① まず全データのdate/timeをtsから正規化
-  S.recs=S.recs.map(r=>{
+  const before=S.recs.length;
+  const seen=new Set();
+
+  S.recs=S.recs.filter(r=>{
+    // ① tsが有効な場合はdate/timeをtsから強制上書き
     if(r.ts){
       const d=new Date(r.ts);
       if(!isNaN(d.getTime()) && d.getFullYear()>=1990){
@@ -824,27 +827,28 @@ function cleanAbnormalRecs(){
         r.time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
       }
     }
-    return r;
-  });
-  // ② 異常なデータを除外
-  const before=S.recs.length;
-  const seen=new Set();
-  S.recs=S.recs.filter(r=>{
-    // 日付が英語形式（Sat/Sun等）のものは除外
-    if(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(String(r.date||''))) return false;
-    // 時刻が異常なものは除外
-    if(!r.time||!/^\d{1,2}:\d{2}/.test(String(r.time))) return false;
-    // 1990年以前は除外
-    const d=new Date(r.ts||r.date||'');
-    if(!isNaN(d.getTime()) && d.getFullYear()<1990) return false;
-    // ③ 重複チェック（日付+時刻+種別+案件名+作業員名）
-    const dateKey=r.date||'';
-    const timeKey=String(r.time||'').substring(0,5);
-    const key=dateKey+'_'+timeKey+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
+    // ② 日付に英語の曜日が含まれていたら除外（tsがないSat Dデータ）
+    const dateStr=String(r.date||'');
+    if(dateStr.startsWith('Mon')||dateStr.startsWith('Tue')||
+       dateStr.startsWith('Wed')||dateStr.startsWith('Thu')||
+       dateStr.startsWith('Fri')||dateStr.startsWith('Sat')||
+       dateStr.startsWith('Sun')) return false;
+    // ③ 時刻に英語が含まれていたら除外
+    const timeStr=String(r.time||'');
+    if(timeStr.startsWith('Mon')||timeStr.startsWith('Tue')||
+       timeStr.startsWith('Wed')||timeStr.startsWith('Thu')||
+       timeStr.startsWith('Fri')||timeStr.startsWith('Sat')||
+       timeStr.startsWith('Sun')) return false;
+    // ④ 時刻がHH:mm形式でなければ除外
+    if(!timeStr.match(/^\d\d?:\d\d/)) return false;
+    // ⑤ 重複チェック（日付+時刻+種別+案件名+作業員名）
+    const timeKey=timeStr.substring(0,5);
+    const key=r.date+'_'+timeKey+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
   const removed=before-S.recs.length;
   if(removed>0){ svS(); console.log('データ正規化・削除: '+removed+'件'); }
 }
