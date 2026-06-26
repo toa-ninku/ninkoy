@@ -813,21 +813,57 @@ function loadAll(){
 function svS(){try{localStorage.setItem('ca6s',JSON.stringify(S));}catch(e){}}
 function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
 
+// 異常な時刻データ（Sat D など）を強制削除して正常データに統一する
+function cleanAbnormalRecs(){
+  const before=S.recs.length;
+  // tsから正しい日付・時刻を復元できるものは修正、できないものは削除
+  S.recs=S.recs.filter(r=>{
+    // tsが有効なISO日時の場合、dateとtimeを正規化
+    if(r.ts){
+      const d=new Date(r.ts);
+      if(!isNaN(d.getTime()) && d.getFullYear()>=1990){
+        // 正しい日付・時刻に上書き
+        r.date=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+        r.time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+        return true;
+      }
+    }
+    // tsがない場合はdateとtimeを確認
+    const dateOk=r.date && !/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(String(r.date));
+    const timeOk=r.time && /^\d{2}:\d{2}$/.test(String(r.time).substring(0,5));
+    return dateOk && timeOk;
+  });
+  const removed=before-S.recs.length;
+  if(removed>0){ svS(); console.log('異常データ削除: '+removed+'件'); }
+}
+
 // localStorageの重複打刻を削除する
 function dedupeRecs(){
   const seen=new Set();
   const before=S.recs.length;
   S.recs=S.recs.filter(r=>{
-    // キー：日付+時刻+種別+案件名+作業員名
-    const d=toLocalDate(r.date||'');
-    const t=(r.time||'').substring(0,5);
-    const key=d+'_'+t+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
+    // ① 異常な日付（Sat D など1990年以前）を除外
+    const d=new Date(r.ts||r.date||'');
+    if(!isNaN(d.getTime()) && d.getFullYear()<1990) return false;
+    // ② 正規化した日付で重複チェック
+    const dateKey=toLocalDate(r.date||r.ts||'');
+    // 時刻の正規化（HH:mm形式に統一）
+    let timeKey=(r.time||'').substring(0,5);
+    if(timeKey.length<5){
+      try{
+        const td=new Date(r.ts||'');
+        if(!isNaN(td.getTime())){
+          timeKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
+        }
+      }catch(e){}
+    }
+    const key=dateKey+'_'+timeKey+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
   });
   const removed=before-S.recs.length;
-  if(removed>0){ svS(); console.log('重複削除: '+removed+'件'); }
+  if(removed>0){ svS(); console.log('重複・異常データ削除: '+removed+'件'); }
   return removed;
 }
 
@@ -892,7 +928,8 @@ function init(){
   }catch(e){
     alert('⚠ このブラウザではデータの保存ができません。\nSafariの場合はプライベートモードをオフにしてください。\n設定 → Safari → プライバシーとセキュリティ → サイト越えトラッキングを防ぐ をオフ');
   }
-  dedupeRecs(); // 起動時に重複削除
+  cleanAbnormalRecs(); // 異常データを強制削除
+  dedupeRecs(); // 重複削除
   autoSyncProjs();
   D.ok ? enterWorker() : showFirst();
 }
@@ -1866,12 +1903,29 @@ async function renderWHist(){
         // 自分のデータのみ対象
         const myGasRecs=data.filter(r=>r.wn===D.wn);
         // 重複チェック用キー（日付+時刻+種別+案件名）
-        const existingKeys=new Set(S.recs.map(r=>
-          toLocalDate(r.date)+'_'+(r.time||'').substring(0,5)+'_'+r.type+'_'+r.pn
-        ));
+        const existingKeys=new Set(S.recs.map(r=>{
+          let tKey=(r.time||'').substring(0,5);
+          if(tKey.length<5){
+            try{
+              const td=new Date(r.ts||'');
+              if(!isNaN(td.getTime()))
+                tKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
+            }catch(e){}
+          }
+          return toLocalDate(r.date)+'_'+tKey+'_'+r.type+'_'+r.pn;
+        }));
         let added=0;
         myGasRecs.forEach(r=>{
-          const key=toLocalDate(r.date)+'_'+(r.time||'').substring(0,5)+'_'+r.type+'_'+r.pn;
+          // 時刻を正規化
+          let tKey=(r.time||'').substring(0,5);
+          if(tKey.length<5){
+            try{
+              const td=new Date(r.ts||'');
+              if(!isNaN(td.getTime()))
+                tKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
+            }catch(e){}
+          }
+          const key=toLocalDate(r.date)+'_'+tKey+'_'+r.type+'_'+r.pn;
           if(!existingKeys.has(key) && r.pn){
             const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
             S.recs.push({
