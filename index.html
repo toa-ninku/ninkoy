@@ -813,6 +813,24 @@ function loadAll(){
 function svS(){try{localStorage.setItem('ca6s',JSON.stringify(S));}catch(e){}}
 function svD(){try{localStorage.setItem('ca6d',JSON.stringify(D));}catch(e){}}
 
+// localStorageの重複打刻を削除する
+function dedupeRecs(){
+  const seen=new Set();
+  const before=S.recs.length;
+  S.recs=S.recs.filter(r=>{
+    // キー：日付+時刻+種別+案件名+作業員名
+    const d=toLocalDate(r.date||'');
+    const t=(r.time||'').substring(0,5);
+    const key=d+'_'+t+'_'+(r.type||'')+'_'+(r.pn||'')+'_'+(r.wn||'');
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const removed=before-S.recs.length;
+  if(removed>0){ svS(); console.log('重複削除: '+removed+'件'); }
+  return removed;
+}
+
 // アプリ起動時にスプレッドシートから案件を自動同期する
 async function autoSyncProjs(){
   if(!S.gas) return; // GAS URLが未設定なら何もしない
@@ -874,6 +892,7 @@ function init(){
   }catch(e){
     alert('⚠ このブラウザではデータの保存ができません。\nSafariの場合はプライベートモードをオフにしてください。\n設定 → Safari → プライバシーとセキュリティ → サイト越えトラッキングを防ぐ をオフ');
   }
+  dedupeRecs(); // 起動時に重複削除
   autoSyncProjs();
   D.ok ? enterWorker() : showFirst();
 }
