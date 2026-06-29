@@ -911,6 +911,15 @@ function init(){
   // ?proj=ID パラメータがある場合は該当工事の打刻画面に直接飛ぶ
   const projParam = params.get('proj');
   if(projParam) window._autoProj = decodeURIComponent(projParam);
+
+  // LINEブラウザ・Instagram等のアプリ内ブラウザを検出してSafari誘導
+  const ua = navigator.userAgent;
+  const isLineApp = ua.includes('Line/') || ua.includes('NAVER');
+  const isInAppBrowser = isLineApp || ua.includes('Instagram') || ua.includes('FBAN') || ua.includes('FB_IAB');
+  if(isInAppBrowser){
+    showLineGuide();
+    return;
+  }
   // 管理者タブ・管理者ボタンの表示制御（管理者専用URLのみ）
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
   g('mgr-role-btn').style.display = isSuperUrlMode ? '' : 'none';
@@ -930,6 +939,38 @@ function init(){
 
 /* ===== 画面切替 ===== */
 function hideAll(){['first-setup','worker-mode','proxy-mode','mgr-mode'].forEach(id=>g(id).style.display='none');}
+function showLineGuide(){
+  // LINEブラウザでアクセスされた場合にSafariで開くよう誘導
+  const currentURL = location.href;
+  hideAll();
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;background:#f5f5f5;font-family:'メイリオ',sans-serif">
+      <div style="background:white;border-radius:16px;padding:28px 24px;max-width:400px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">📱</div>
+        <div style="font-size:18px;font-weight:700;color:#0F6E56;margin-bottom:12px">Safariで開いてください</div>
+        <div style="font-size:14px;color:#555;line-height:1.7;margin-bottom:24px">
+          このアプリはSafari（ブラウザ）で開く必要があります。<br>
+          LINEのブラウザでは正しく動作しません。
+        </div>
+        <div style="background:#E8F5E9;border-radius:12px;padding:16px;margin-bottom:20px;text-align:left">
+          <div style="font-size:13px;font-weight:700;color:#2E7D32;margin-bottom:10px">📋 開き方の手順</div>
+          <div style="font-size:13px;color:#333;line-height:2">
+            <div>① 右下の「…」または「⋮」をタップ</div>
+            <div>② 「ブラウザで開く」または</div>
+            <div>　「Safariで開く」を選択</div>
+          </div>
+        </div>
+        <div style="background:#F3F4F6;border-radius:8px;padding:12px;margin-bottom:20px">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">またはこのURLをSafariに貼り付け：</div>
+          <div style="font-size:11px;color:#0F6E56;word-break:break-all;font-weight:600">${currentURL}</div>
+        </div>
+        <button onclick="navigator.clipboard.writeText('${currentURL}').then(()=>alert('URLをコピーしました！\nSafariのアドレスバーに貼り付けてください。'))"
+          style="width:100%;padding:14px;background:#0F6E56;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+          📋 URLをコピーする
+        </button>
+      </div>
+    </div>`;
+}
 function closeApp(){
   alert(
     '【アプリの終了方法】\n\n' +
@@ -1223,10 +1264,9 @@ async function enterWorker(){
     window._autoProj=null;
     const proj=S.projs.find(p=>String(p.id)===String(pid));
     if(proj){
-      showCheckoutPanel=showCheckoutPanel; // 関数参照確認
       wNav('wscan',g('worker-mode').querySelector('.nv'));
       setTimeout(async()=>{ await wShowPanel(proj); },100);
-      return;
+      return; // checkTodayStampは呼ばない
     }
   }
   checkTodayStamp(); // 当日出勤状況をチェック
@@ -1337,15 +1377,19 @@ async function quickCheckout(pid,pname){
   setTimeout(checkTodayStamp,500);
 }
 function checkMissedCheckout(){
-  // 17時以降で退勤打刻忘れがないかチェック
+  // 17時以降で退勤打刻忘れがないかチェック（1日1回のみアラート表示）
   const now=new Date();
   if(now.getHours()<17) return;
   const today=now.toLocaleDateString('ja-JP');
+  // 今日すでにアラートを表示済みか確認
+  const alreadyAlerted=sessionStorage.getItem('checkoutAlerted');
+  if(alreadyAlerted===today) return;
   const todayRecs=S.recs.filter(r=>(r.wid===D.wid||r.wn===D.wn)&&toLocalDate(r.date)===today);
   const inProjs=new Set(todayRecs.filter(r=>r.type==='in').map(r=>String(r.pid)));
   const outProjs=new Set(todayRecs.filter(r=>r.type==='out').map(r=>String(r.pid)));
   const missing=[...inProjs].filter(pid=>!outProjs.has(pid));
   if(missing.length>0){
+    sessionStorage.setItem('checkoutAlerted', today); // 表示済みフラグを保存
     setTimeout(()=>{
       alert('退勤ボタンが押されておりません。ご確認お願いします。');
     },500);
