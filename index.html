@@ -1965,7 +1965,7 @@ async function renderWHist(){
   if(!el) return;
   el.innerHTML='<div class="empty">読み込み中...</div>';
 
-  // GASから自分の打刻履歴を取得（重複チェックを強化）
+  // GASから自分の打刻履歴を取得してlocalStorageを更新
   if(S.gas && D.wn){
     try{
       const base=S.gas.split('?')[0];
@@ -1973,44 +1973,32 @@ async function renderWHist(){
       const data=await res.json();
       if(Array.isArray(data) && data.length){
         // 自分のデータのみ対象
-        const myGasRecs=data.filter(r=>r.wn===D.wn);
-        // 重複チェック用キー（日付+時刻+種別+案件名）
-        const existingKeys=new Set(S.recs.map(r=>{
-          let tKey=(r.time||'').substring(0,5);
-          if(tKey.length<5){
-            try{
-              const td=new Date(r.ts||'');
-              if(!isNaN(td.getTime()))
-                tKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
-            }catch(e){}
-          }
-          return toLocalDate(r.date)+'_'+tKey+'_'+r.type+'_'+r.pn;
-        }));
-        let added=0;
+        const myGasRecs=data.filter(r=>r.wn===D.wn && r.pn);
+        // 自分以外のlocalStorageデータを保持
+        const otherRecs=S.recs.filter(r=>r.wid!==D.wid && r.wn!==D.wn);
+        // 自分のGASデータをtsをキーに重複排除してセット
+        const gasMap={};
         myGasRecs.forEach(r=>{
-          // 時刻を正規化
-          let tKey=(r.time||'').substring(0,5);
-          if(tKey.length<5){
-            try{
-              const td=new Date(r.ts||'');
-              if(!isNaN(td.getTime()))
-                tKey=td.getHours().toString().padStart(2,'0')+':'+td.getMinutes().toString().padStart(2,'0');
-            }catch(e){}
-          }
-          const key=toLocalDate(r.date)+'_'+tKey+'_'+r.type+'_'+r.pn;
-          if(!existingKeys.has(key) && r.pn){
-            const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
-            S.recs.push({
-              id:uid(),pid:String(proj.id),pn:r.pn,
-              wid:D.wid,wn:r.wn,cid:D.cid,cn:r.cn,
-              type:r.type,date:r.date,time:r.time,
-              ts:r.ts,proxy:r.proxy||false,note:r.note||''
-            });
-            existingKeys.add(key);
-            added++;
-          }
+          const proj=S.projs.find(p=>p.n===r.pn)||{id:r.pn,n:r.pn};
+          const rec={
+            id:uid(),pid:String(proj.id),pn:r.pn,
+            wid:D.wid,wn:r.wn,cid:D.cid||r.cn,cn:r.cn,
+            type:r.type,date:r.date,time:r.time,
+            ts:r.ts,proxy:r.proxy||false,note:r.note||''
+          };
+          // tsをキーに重複排除（tsがない場合は日付+時刻+種別+案件名）
+          const key=r.ts||(r.date+'_'+r.time+'_'+r.type+'_'+r.pn);
+          if(!gasMap[key]) gasMap[key]=rec;
         });
-        if(added>0) svS();
+        // 自分のlocalStorageデータのうちGASにないものも保持（当日打刻など）
+        const gasKeys=new Set(Object.keys(gasMap));
+        const myLocalOnly=S.recs.filter(r=>{
+          if(!(r.wid===D.wid||r.wn===D.wn)) return false;
+          const key=r.ts||(r.date+'_'+r.time+'_'+r.type+'_'+r.pn);
+          return !gasKeys.has(key);
+        });
+        S.recs=[...otherRecs, ...Object.values(gasMap), ...myLocalOnly];
+        svS();
       }
     }catch(e){ console.log('GAS履歴取得失敗:', e); }
   }
