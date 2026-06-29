@@ -908,6 +908,9 @@ function init(){
   // URLに管理者キーが含まれるか判定
   const params = new URLSearchParams(window.location.search);
   isSuperUrlMode = params.get('admin') === ADMIN_URL_KEY;
+  // ?proj=ID パラメータがある場合は該当工事の打刻画面に直接飛ぶ
+  const projParam = params.get('proj');
+  if(projParam) window._autoProj = decodeURIComponent(projParam);
   // 管理者タブ・管理者ボタンの表示制御（管理者専用URLのみ）
   g('tab-super').style.display = isSuperUrlMode ? '' : 'none';
   g('mgr-role-btn').style.display = isSuperUrlMode ? '' : 'none';
@@ -1174,6 +1177,16 @@ async function enterWorker(){
     loadEl.innerHTML='<i class="ti ti-loader" style="font-size:24px;display:block;margin-bottom:8px"></i>打刻状況を確認中...';
     scanCard.prepend(loadEl);
   }
+  // URLパラメータで工事指定がある場合（未登録端末）
+  if(window._autoProj && !D.ok){
+    const pid=window._autoProj;
+    const proj=S.projs.find(p=>String(p.id)===String(pid));
+    if(proj){
+      // 端末登録後に自動でその工事に飛べるようにpending保存
+      window._autoProjPending=pid;
+      g('fs-qmsg').textContent='QRをスキャンして端末登録後、自動で打刻画面が開きます';
+    }
+  }
   // GASから当日の打刻データを同期
   if(S.gas && D.ok){
     try{
@@ -1204,6 +1217,18 @@ async function enterWorker(){
   // ローディング削除
   const loadEl=g('w-loading');
   if(loadEl) loadEl.remove();
+  // URLパラメータで工事指定がある場合は自動でその工事の打刻画面を表示
+  if(window._autoProj){
+    const pid=window._autoProj;
+    window._autoProj=null;
+    const proj=S.projs.find(p=>String(p.id)===String(pid));
+    if(proj){
+      showCheckoutPanel=showCheckoutPanel; // 関数参照確認
+      wNav('wscan',g('worker-mode').querySelector('.nv'));
+      setTimeout(async()=>{ await wShowPanel(proj); },100);
+      return;
+    }
+  }
   checkTodayStamp(); // 当日出勤状況をチェック
 }
 function checkTodayStamp(){
@@ -2705,14 +2730,32 @@ async function addProj(){
 }
 function renderProjs(){
   const el=g('proj-list');if(!S.projs.length){el.innerHTML='<div class="empty">案件がありません</div>';return;}
-  el.innerHTML=S.projs.map(p=>`<div class="row"><div style="flex:1;min-width:0">
-    <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.n}${p.fromSheet?'<span class="bdg bdg-co" style="font-size:10px;margin-left:6px">SS連携</span>':''}</div>
-    <div style="font-size:11px;color:var(--text2)">${[p.addr,p.placeDetail1,p.placeDetail2].filter(Boolean).join(' / ')||'工事場所未設定'}</div>
-    <div style="font-size:11px;color:var(--text2)">${p.mgr?'担当:'+p.mgr+'　':''}${p.deadline?'納期:'+p.deadline+'　':''}${p.status?p.status:''}</div>
-  </div><div style="display:flex;gap:6px;flex-shrink:0">
-    <button class="btn btn-blue btn-sm" onclick="showQR(S.projs.find(x=>x.id==='${p.id}'))">QR</button>
-    <button class="btn btn-red btn-sm" onclick="delProj('${p.id}')"><i class="ti ti-trash"></i></button>
-  </div></div>`).join('');
+  el.innerHTML=S.projs.map(p=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${p.n}${p.fromSheet?'<span class="bdg bdg-co" style="font-size:10px;margin-left:6px">SS連携</span>':''}</div>
+        <div style="font-size:11px;color:var(--text2)">${[p.addr,p.placeDetail1,p.placeDetail2].filter(Boolean).join(' / ')||'工事場所未設定'}</div>
+        <div style="font-size:11px;color:var(--text2)">${p.mgr?'担当:'+p.mgr+'　':''}${p.deadline?'納期:'+p.deadline+'　':''}${p.status?p.status:''}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn btn-blue btn-sm" onclick="showQR(S.projs.find(x=>x.id==='${p.id}'))">QR</button>
+        <button class="btn btn-red btn-sm" onclick="delProj('${p.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;font-size:12px;color:var(--green);border-color:var(--green)" onclick="copyProjURL('${p.id}')">
+      <i class="ti ti-link"></i> URLをコピー（LINEで送れます）
+    </button>
+  </div>`).join('');
+}
+function copyProjURL(id){
+  const base=location.origin+location.pathname;
+  const url=base+'?proj='+encodeURIComponent(id);
+  navigator.clipboard.writeText(url).then(()=>{
+    alert('URLをコピーしました！\nLINEに貼り付けて作業員に送ってください。\n\n'+url);
+  }).catch(()=>{
+    // クリップボードAPIが使えない場合はプロンプトで表示
+    prompt('以下のURLをコピーしてLINEで送ってください：', url);
+  });
 }
 async function delProj(id){
   if(!confirm('削除しますか？'))return;
