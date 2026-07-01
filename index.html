@@ -147,11 +147,10 @@ lbl:first-of-type{margin-top:0}
 @keyframes scan{0%{top:8%}100%{top:90%}}
 
 /* ===== PW ===== */
-.pw-wrap{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;margin-bottom:0}
-.pw-wrap input{flex:1;border:none!important;border-radius:0!important;margin-bottom:0!important;background:transparent!important;padding:10px 12px!important}
-.pw-wrap input:focus{outline:none}
-.pw-toggle{flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0 10px;margin:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
-.pw-toggle:hover{color:var(--text1);background:var(--surface2)}
+.pw-wrap{display:flex;align-items:stretch;gap:4px;margin-bottom:0}
+.pw-wrap input{flex:1;margin-bottom:0!important}
+.pw-toggle{flex-shrink:0;width:44px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center}
+.pw-toggle:hover{background:var(--border);color:var(--text1)}
 
 /* ===== COMPANY TREE ===== */
 .co-block{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
