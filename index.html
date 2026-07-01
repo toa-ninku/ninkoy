@@ -374,7 +374,7 @@ lbl:first-of-type{margin-top:0}
       <div id="login-tab-super">
         <div class="ibox"><strong>管理者</strong>（元請け会社）<br>全機能使用可・パスワード変更可<br>初期PW：<strong>admin1234</strong></div>
         <lbl>パスワード</lbl>
-        <div class="pw-wrap"><input type="password" id="mgr-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')mgrLogin()" style="width:auto;flex:1;min-width:0"><button class="pw-toggle" onclick="tglPw('mgr-pw',this)" tabindex="-1" style="flex-shrink:0;width:44px;min-width:44px;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center"><i class="ti ti-eye"></i></button></div>
+        <div class="pw-wrap"><input type="password" id="mgr-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')mgrLogin()" style="width:auto;flex:1;min-width:0"><button class="pw-toggle" onclick="tglPw('mgr-pw',this)" tabindex="-1" style="flex-shrink:0;padding:0 12px;min-width:52px;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;color:#555;white-space:nowrap" id="mgr-pw-toggle-btn">表示</button></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;margin-bottom:4px">
           <input type="checkbox" id="mgr-save-pw" style="width:18px;height:18px;cursor:pointer">
           <label for="mgr-save-pw" style="font-size:13px;color:var(--text2);cursor:pointer">このデバイスにパスワードを保存する</label>
@@ -1463,7 +1463,17 @@ function mgrLogout(){
   switchLoginTab('super');
   D.ok?enterWorker():showFirst();
 }
-function tglPw(id,btn){const el=g(id);const s=el.type==='password';el.type=s?'text':'password';btn.innerHTML=s?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';}
+function tglPw(id,btn){
+  const el=g(id);
+  const s=el.type==='password';
+  el.type=s?'text':'password';
+  // アイコンがある場合はアイコン、テキストの場合はテキストで切替
+  if(btn.querySelector('i')){
+    btn.innerHTML=s?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';
+  } else {
+    btn.textContent=s?'非表示':'表示';
+  }
+}
 async function chgPw(){
   const o=g('pw-o').value,n=g('pw-n').value,c=g('pw-c').value,msg=g('pw-msg');
   if(o!==S.pw){msg.style.color='var(--red)';msg.textContent='現在のパスワードが違います';return;}
