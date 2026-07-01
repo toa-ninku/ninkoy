@@ -147,9 +147,9 @@ lbl:first-of-type{margin-top:0}
 @keyframes scan{0%{top:8%}100%{top:90%}}
 
 /* ===== PW ===== */
-.pw-wrap{display:flex;align-items:stretch;gap:4px;margin-bottom:0}
-.pw-wrap input{flex:1;margin-bottom:0!important}
-.pw-toggle{flex-shrink:0;width:44px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center}
+.pw-wrap{display:flex;align-items:stretch;gap:4px;margin-bottom:0;width:100%;box-sizing:border-box}
+.pw-wrap input{flex:1;min-width:0;margin-bottom:0!important;width:auto!important}
+.pw-toggle{flex-shrink:0;width:44px;min-width:44px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center}
 .pw-toggle:hover{background:var(--border);color:var(--text1)}
 
 /* ===== COMPANY TREE ===== */
