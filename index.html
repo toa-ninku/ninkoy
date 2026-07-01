@@ -67,6 +67,7 @@ var qrcode = (function() {
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 input,select,button{font-family:inherit;font-size:14px}
 input,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);margin-bottom:0;outline:none}
+.pw-wrap input{padding-right:44px!important;box-sizing:border-box}
 input:focus,select:focus{border-color:var(--blue)}
 
 /* ===== NAV ===== */
@@ -148,7 +149,8 @@ lbl:first-of-type{margin-top:0}
 
 /* ===== PW ===== */
 .pw-wrap{position:relative;margin-bottom:0}
-.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;margin:0;width:auto}
+.pw-toggle{position:absolute!important;right:10px!important;top:50%!important;transform:translateY(-50%)!important;background:none!important;border:none!important;cursor:pointer!important;color:var(--text3)!important;font-size:18px!important;padding:4px!important;margin:0!important;width:auto!important;min-width:0!important;border-radius:4px!important}
+.pw-toggle:hover{color:var(--text1)!important;background:var(--surface2)!important}
 
 /* ===== COMPANY TREE ===== */
 .co-block{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
