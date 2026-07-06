@@ -2612,7 +2612,13 @@ function submitManual(){
 }
 
 /* ===== Core stamp ===== */
+// 二重送信防止フラグ
+let _stampLock=false;
 function doStamp(proj,worker,co,type,isProxy,note){
+  // 3秒以内の二重送信を防止
+  if(_stampLock){ console.warn('二重送信を防止しました'); return; }
+  _stampLock=true;
+  setTimeout(()=>{ _stampLock=false; },3000);
   const now=new Date();
   // 代理打刻の場合、端末登録者の名前をnoteに記録
   let noteStr = note||'';
@@ -2643,6 +2649,13 @@ function calcNK(pid,wid,date){
 function calcH(t1,t2){const[h1,m1]=t1.split(':').map(Number),[h2,m2]=t2.split(':').map(Number);return Math.max(0,(h2*60+m2-h1*60-m1)/60);}
 async function sendGAS(rec){
   if(!S.gas)return;
+  // 同じtsのデータが既に送信済みなら再送しない
+  const sentKey='sent_'+rec.ts;
+  if(sessionStorage.getItem(sentKey)){
+    console.warn('重複送信を防止:', rec.ts);
+    return;
+  }
+  sessionStorage.setItem(sentKey,'1');
   try{
     // GETリクエストで送信（CORSエラー回避）
     const base=S.gas.split('?')[0];
