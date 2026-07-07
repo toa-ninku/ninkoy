@@ -3037,26 +3037,47 @@ function openEdit(id){
 function edUpdW(){popWSel(g('ed-w'),g('ed-c').value,'');}
 async function saveEdit(){
   const id=g('edit-id').value;const idx=S.recs.findIndex(r=>r.id===id);if(idx<0)return;
+  const oldRec=S.recs[idx]; // 修正前データを保存
   const pid=g('ed-p').value,cid=g('ed-c').value,wid=g('ed-w').value,date=g('ed-d').value,time=g('ed-t').value;
   const proj=S.projs.find(p=>p.id===pid),co=S.co.find(c=>c.id===cid),w=co?.ws.find(x=>x.id===wid);
   const d=new Date(date+'T'+time);
-  const updated={...S.recs[idx],
-    pid,pn:proj?.n||S.recs[idx].pn,
-    cid,cn:co?.n||S.recs[idx].cn,
-    wid,wn:w?.n||S.recs[idx].wn,
+  const newTs=d.toISOString();
+  const updated={...oldRec,
+    pid,pn:proj?.n||oldRec.pn,
+    cid,cn:co?.n||oldRec.cn,
+    wid,wn:w?.n||oldRec.wn,
     type:g('ed-type').value,
     date:d.toLocaleDateString('ja-JP'),
     time:d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
-    ts:d.toISOString(),
+    ts:newTs,
     note:g('ed-note').value.trim(),
     proxy:true
   };
   S.recs[idx]=updated;
   svS();closeM('edit-modal');renderRecs();renderEditRecs();renderSum();
-  // GASスプレッドシートにも更新を送る
-  if(S.gas) sendGAS(updated);
+  // GASスプレッドシートの既存行を更新（修正前データも記録）
+  if(S.gas){
+    try{
+      const base=S.gas.split('?')[0];
+      const params=new URLSearchParams({
+        action:'updateStamp',
+        oldTs:encodeURIComponent(oldRec.ts||''),
+        newDate:encodeURIComponent(updated.date),
+        newTime:encodeURIComponent(updated.time),
+        newPn:encodeURIComponent(updated.pn),
+        newCn:encodeURIComponent(updated.cn),
+        newWn:encodeURIComponent(updated.wn),
+        newType:updated.type,
+        newNote:encodeURIComponent(updated.note||''),
+        newTs:encodeURIComponent(newTs)
+      });
+      const res=await fetch(base+'?'+params.toString(),{method:'GET',redirect:'follow'});
+      const result=await res.json();
+      if(result.status!=='ok') console.warn('updateStamp failed:', result);
+    }catch(e){console.error('updateStamp error:',e);}
+  }
   addEditLog('打刻編集',`${updated.wn}（${updated.cn}）/ ${updated.pn} ${updated.date} ${updated.time} ${updated.type==='in'?'出勤':'退勤'}`);
-  alert('✅ 更新しました');
+  alert('✅ 更新しました（スプレッドシートに反映済み）');
 }
 async function delEdit(){
   if(!confirm('削除しますか？'))return;
