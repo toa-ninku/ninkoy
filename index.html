@@ -3028,13 +3028,56 @@ function renderEditRecs(){
 function openEdit(id){
   const rec=S.recs.find(r=>r.id===id);if(!rec)return;
   g('edit-id').value=id;
+
+  // 案件プルダウン
   g('ed-p').innerHTML=S.projs.map(p=>`<option value="${p.id}"${p.id===rec.pid?' selected':''}>${p.n}</option>`).join('');
-  popCoSel(g('ed-c'),rec.cid);
-  const co=S.co.find(c=>c.id===rec.cid);g('ed-w').innerHTML=(co?.ws||[]).map(w=>`<option value="${w.id}"${w.id===rec.wid?' selected':''}>${w.n}</option>`).join('');
-  try{const dt=new Date(rec.ts);g('ed-d').value=dt.toISOString().split('T')[0];g('ed-t').value=dt.toTimeString().slice(0,5);}catch(e){}
+
+  // 会社プルダウン：打刻データから一意の会社名を抽出
+  const coSet={};
+  S.recs.forEach(r=>{ if(r.cn) coSet[r.cn]=r.cid||r.cn; });
+  // S.coにあるものも追加
+  S.co.forEach(c=>{ coSet[c.n]=c.id; });
+  g('ed-c').innerHTML=Object.entries(coSet).map(([n,cid])=>
+    `<option value="${cid}"${(cid===rec.cid||n===rec.cn)?' selected':''}>${n}</option>`
+  ).join('');
+
+  // 作業員プルダウン：選択中の会社の打刻データから一意の作業員を抽出
+  edUpdWFromRec(rec.cn, rec.wn);
+
+  // 日時
+  try{
+    const dt=new Date(rec.ts||rec.date+' '+rec.time);
+    if(!isNaN(dt.getTime())){
+      g('ed-d').value=dt.toISOString().split('T')[0];
+      g('ed-t').value=dt.toTimeString().slice(0,5);
+    } else {
+      // フォールバック：日付・時刻を直接セット
+      const dateStr=(rec.date||'').replace(/\//g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/,
+        (_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+      g('ed-d').value=dateStr;
+      g('ed-t').value=(rec.time||'').substring(0,5);
+    }
+  }catch(e){
+    g('ed-d').value='';
+    g('ed-t').value=(rec.time||'').substring(0,5);
+  }
   g('ed-type').value=rec.type;g('ed-note').value=rec.note||'';openM('edit-modal');
 }
-function edUpdW(){popWSel(g('ed-w'),g('ed-c').value,'');}
+function edUpdWFromRec(cn, selectedWn){
+  const wSet={};
+  S.recs.filter(r=>r.cn===cn||r.cid===cn).forEach(r=>{ if(r.wn) wSet[r.wn]=r.wid||r.wn; });
+  // S.coにある作業員も追加
+  const co=S.co.find(c=>c.n===cn||c.id===cn);
+  if(co) co.ws.forEach(w=>{ wSet[w.n]=w.id; });
+  g('ed-w').innerHTML=Object.entries(wSet).map(([n,wid])=>
+    `<option value="${wid}"${n===selectedWn?' selected':''}>${n}</option>`
+  ).join('') || '<option value="">作業員なし</option>';
+}
+function edUpdW(){
+  const coVal=g('ed-c').value;
+  const coName=g('ed-c').options[g('ed-c').selectedIndex]?.text||'';
+  edUpdWFromRec(coName, '');
+}
 async function saveEdit(){
   const id=g('edit-id').value;const idx=S.recs.findIndex(r=>r.id===id);if(idx<0)return;
   const oldRec=S.recs[idx]; // 修正前データを保存
