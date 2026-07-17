@@ -467,7 +467,18 @@ lbl:first-of-type{margin-top:0}
         <lbl style="margin-top:10px">状態</lbl><select id="pe" style="margin-bottom:0"><option value="進行中">進行中</option><option value="準備中">準備中</option><option value="完了">完了</option></select>
         <button class="btn btn-blue" onclick="addProj()" style="margin-top:14px"><i class="ti ti-qrcode" aria-hidden="true"></i>登録してQR生成</button>
       </div>
-      <div class="card"><div class="ctitle"><i class="ti ti-list" aria-hidden="true"></i>登録済み案件</div><div id="proj-list"><div class="empty">案件がありません</div></div></div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="ctitle" style="margin:0"><i class="ti ti-list" aria-hidden="true"></i>登録済み案件</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:12px;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="show-completed" onchange="renderProjs()" style="margin-right:4px;width:auto">
+              完了案件も表示
+            </label>
+          </div>
+        </div>
+        <div id="proj-list"><div class="empty">案件がありません</div></div>
+      </div>
     </div>
 
     <!-- 履歴 -->
@@ -2815,7 +2826,14 @@ async function addProj(){
 }
 function renderProjs(){
   const el=g('proj-list');if(!S.projs.length){el.innerHTML='<div class="empty">案件がありません</div>';return;}
-  el.innerHTML=S.projs.map(p=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)">
+  const showCompleted=g('show-completed')?.checked||false;
+  // 完了案件は非表示（チェックがONの場合は全表示）
+  const filtered=S.projs.filter(p=>showCompleted||p.status!=='完了');
+  if(!filtered.length){
+    el.innerHTML='<div class="empty">表示する案件がありません<br><small style="color:var(--text3)">（完了案件を表示するにはチェックを入れてください）</small></div>';
+    return;
+  }
+  el.innerHTML=filtered.map(p=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);${p.status==='完了'?'opacity:0.6':''}">
     <div style="display:flex;align-items:flex-start;gap:8px">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600">${p.n}${p.fromSheet?'<span class="bdg bdg-co" style="font-size:10px;margin-left:6px">SS連携</span>':''}</div>
